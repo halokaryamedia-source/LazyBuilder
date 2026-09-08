@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Settle the material reference evidence and target constraints before Hunyuan generation.
+Settle material reference evidence and target constraints before Hunyuan3D shape generation.
 
-## Preferred set
+## Image mode
+
+Preferred set:
 
 ```text
 front.png
@@ -13,18 +15,52 @@ back.png
 left.png
 ```
 
-More views are not automatically better. Consistent views are more valuable than many conflicting views.
+One to four views are allowed. More views are not automatically better; consistent views are more valuable than many conflicting views.
 
-## Check
+Check:
 
 - same object/design/version across views;
-- no material shape contradiction between sides;
+- no material shape contradiction;
 - known dimensions/target Minecraft width retained;
-- important hidden/missing side uncertainty stated;
-- user override/instruction retained as higher authority than generated inference.
+- hidden/missing side uncertainty stated;
+- user instruction remains higher authority than generated inference.
 
-## Output
+## Text mode
 
-Hand generation only the images and constraints that materially affect shape.
+Text input first creates **one canonical front reference**:
 
-Do not create a large metadata system before a real project requires persistent structured intake state.
+```bash
+python kits/lazy-builder/generation/generate_text_reference.py \
+  --prompt "<user intent>" \
+  --output-dir workspace/active/<project>/generated/text
+```
+
+Expected:
+
+```text
+reference_front.png
+text_reference.json
+```
+
+The reference is generated evidence, not authority. Review it against the user's intent before using it for shape generation.
+
+Required gate:
+
+```text
+text intent
+→ reference_front.png
+→ review / approval
+→ generation
+```
+
+Do not independently generate front/right/back/left from the same text for MVP; separate image generations can drift and create contradictory 3D conditioning.
+
+## Handoff to generation
+
+Hand Flow 3 only:
+
+- approved/supplied named images;
+- known dimensions or target Minecraft scale when material;
+- only shape constraints that affect generation.
+
+Do not create a broad project-metadata system before a real use case requires it.
