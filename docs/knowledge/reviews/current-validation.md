@@ -1,6 +1,6 @@
 # Current Validation Status
 
-Updated: 2026-09-08
+Updated: 2026-09-09
 
 ## Current system state
 
@@ -10,204 +10,225 @@ working branch: develop
 verified integration baseline: Local
 stable branch: main
 product maturity: pre-MVP
+runtime acceptance: intentionally deferred by user
 ```
 
-LazyBuilder's repository/system preparation is now coherent enough for a future controlled Runtime Acceptance session, but **no new Hunyuan/Blender/Axiom/Minecraft runtime proof is claimed**.
+LazyBuilder has now undergone a second source-focused audit specifically aimed at finding conditions that could **look reproducible/correct in CI while being materially wrong at runtime**.
+
+No Hunyuan inference, Blender conversion, Axiom/Paper placement, or Minecraft runtime proof was performed during this audit.
+
+## Source-audit result
+
+The audit found and corrected several false-confidence paths.
+
+### 1. Hunyuan source identity
+
+Previously the shape manifest recorded the *expected* upstream source commit but did not prove that the imported `hy3dgen` package actually came from that commit.
+
+Now:
+
+```text
+import hy3dgen
+→ resolve package file to Git checkout
+→ git HEAD must equal pinned commit
+→ working tree must be clean
+→ actual checkout path/commit recorded
+→ otherwise generation fails before inference
+```
+
+Pinned source:
+
+```text
+Tencent-Hunyuan/Hunyuan3D-2
+f8db63096c8282cb27354314d896feba5ba6ff8a
+```
+
+### 2. Text-reference wrapper accuracy
+
+The previous custom PAG layer selection was removed because it was not sufficiently grounded for the pinned distilled model.
+
+Current text baseline uses:
+
+```text
+Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
+revision 527cf2ecce7c04021975938f8b0e44e35d2b1ed9
+native HunyuanDiTPipeline
+25 inference steps
+guidance_scale 7.5
+```
+
+This keeps the baseline closer to the model's native documented usage and avoids an unproved optimization path.
+
+### 3. Shape extraction defaults
+
+Extraction-critical values are now explicit instead of inheriting mutable upstream defaults:
+
+```text
+variant fp16
+use_safetensors true
+box_v 1.01
+mc_level 0.0
+mc_algo null
+output_type trimesh
+steps 30
+guidance_scale 7.5
+octree_resolution 256
+num_chunks 8000
+seed 12345
+```
+
+Zero/empty mesh output is rejected.
+
+### 4. Preflight is fail-closed
+
+Preflight PASS now requires:
+
+```text
+required runtime packages installed
+Git + Blender executable paths available
+installed generation API signatures compatible with LazyBuilder calls
+actual Hunyuan checkout pinned + clean
+required machine/runtime/Axiom/Paper facts declared
+source/model pins exact
+```
+
+Preflight remains non-runtime: it imports/inspects interfaces but does not execute model inference or launch Blender/Axiom/Minecraft.
+
+### 5. Intentional input changes
+
+Unexpected T1/I1/I2 changes remain `INPUT_DRIFT`.
+
+A new explicit helper now supports legitimate source updates:
+
+```text
+refresh_case_input.py
+→ refresh named authoritative input SHA-256
+→ invalidate first affected owner + true dependents
+→ preserve independent evidence
+```
+
+This fixes the previous situation where invalidating a stage alone could leave the old case snapshot and cause the same drift failure again.
+
+### 6. Human gates are enforced
+
+The controller now refuses direct `RUNNING → PASS` for:
+
+```text
+text_reference
+minecraft_preview
+```
+
+Both require:
+
+```text
+RUNNING → APPROVAL_REQUIRED → PASS
+```
+
+### 7. Cross-artifact consistency
+
+Validators now reject:
+
+```text
+non-finite / zero / inverted Blender bounds
+Minecraftize report count/bounds disagreeing with blocks.json
+preview manifest metadata disagreeing with canonical blocks.json
+schematic source metadata disagreeing with canonical blocks.json
+```
+
+### 8. Schematic evidence scale
+
+The exporter still reloads and compares **every source block state** after save.
+
+The manifest no longer duplicates every block as diagnostic evidence. It records:
+
+```text
+round_trip_verified_block_count = full source block count
+≤64 deterministic diagnostic samples
+```
+
+Thus verification remains exhaustive while evidence size stays bounded.
+
+### 9. Runtime evidence lineage
+
+`write_runtime_evidence.py` now binds future Axiom/Paper/Minecraft observations to:
+
+```text
+exact build.schem SHA-256
+exact preflight environment.json SHA-256
+import / clipboard / placement / minecraft_world / visual_state
+```
+
+The session controller rejects Axiom PASS if runtime evidence hashes do not equal the session's authoritative schematic/preflight PASS digests.
+
+## Latest deliveries
+
+```text
+5c6e2a6ddc0ab3384a22afee009b64674b3a05d9
+fix(readiness): add explicit case input refresh
+
+e2430948b15803f1bd79e983957bafd54df9977a
+fix(readiness): make source evidence fail closed
+
+2b02ef6c9ee39b468ae00a3e9ac5535f4d2c8cd0
+docs(readiness): make fail-closed policy explicit
+```
+
+## Verification evidence
+
+On core code commit `e243094`:
+
+```text
+Generation Contract Verify  → PASS
+Repository Verify           → PASS
+M1 Schematic Smoke          → PASS
+```
+
+The initial Pre-Runtime Verify failed only on a literal documentation marker (`fail-closed`), not a source/test failure. The marker was made explicit without weakening the verifier.
+
+On current synchronized tree `2b02ef6`:
+
+```text
+Repository Verify            → PASS
+Pre-Runtime Verify            → PASS (run 34262847797)
+M1 Schematic Smoke           → PASS
+```
+
+Pre-Runtime Verify includes generation/session/artifact unit tests, static session routing, Minecraftize pure tests, entrypoint compilation without launching applications, canonical preview generation, and schematic export/reload verification.
 
 ## Canonical product chain
 
 ```text
 T1 TEXT
-→ pinned HunyuanDiT
+→ pinned native HunyuanDiTPipeline
 → reference_front.png
-→ user approval
-→ pinned Hunyuan3D-2mv
-→ model.glb
+→ approval
+→ pinned/verified Hunyuan3D-2mv
 
-I1 SINGLE IMAGE ──────────────┐
-I2 MULTIVIEW ─────────────────┼→ pinned Hunyuan3D-2mv → model.glb
-T1 approved reference ────────┘
+I1 SINGLE IMAGE → pinned/verified Hunyuan3D-2mv
+I2 MULTIVIEW    → pinned/verified Hunyuan3D-2mv
 
-three GLBs
-→ select representative GLB
+→ representative GLB
 → Blender LazyBuilderTarget + target.json
-→ Minecraftize V0 full-block conversion
+→ Minecraftize V0 full blocks
 → canonical blocks.json
-├→ preview.svg
-└→ mcschematic==11.4.4 → Sponge V2 / DataVersion 4189 .schem
+→ approved canonical preview.svg
+→ mcschematic==11.4.4 / Sponge V2 / DataVersion 4189
 → Axiom 5.3.0
 → AxiomPaper 5.0.1+1.21.4 / Paper 1.21.4
 → Minecraft Java 1.21.4
 ```
 
-## Latest pre-runtime hardening evidence
+## Axiom static baseline
 
-Hardening delivery:
-
-```text
-9c7d83faeac730bce83b645679344b2efca51e01
-feat(readiness): harden pre-runtime pipeline contracts
-```
-
-Checks on that exact commit:
+Existing audited baseline remains unchanged:
 
 ```text
-Generation Contract Verify   run 34258306317 → PASS
-Repository Verify            run 34258306328 → PASS
-M1 Schematic Smoke           run 34258306357 → PASS
-Pre-Runtime Verify           run 34258306388 → PASS
+Axiom 5.3.0 client / API family 9
+AxiomPaper 5.0.1+1.21.4 / API family 9
+Sponge V2 / DataVersion 4189
 ```
 
-Pre-Runtime Verify covers repository/source synchronization, generation contracts, session/artifact tests, static session dry-run, Minecraftize pure tests, runtime-entrypoint compilation **without launching applications**, canonical preview generation, and schematic writer round-trip.
-
-Expected static marker:
-
-```text
-STATIC_PRE_RUNTIME_DRY_RUN_PASS_RUNTIME_NOT_STARTED
-```
-
-## Generation reproducibility status
-
-Pinned authority:
-
-```text
-HunyuanDiT
-model: Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
-revision: 527cf2ecce7c04021975938f8b0e44e35d2b1ed9
-
-Hunyuan3D source
-repository: Tencent-Hunyuan/Hunyuan3D-2
-commit: f8db63096c8282cb27354314d896feba5ba6ff8a
-
-Hunyuan3D-2mv
-model: tencent/Hunyuan3D-2mv
-revision: 08766051fa711c6ef5caf86b97e50304fdfcf0ef
-subfolder: hunyuan3d-dit-v2-mv
-```
-
-`kits/lazy-builder/generation/ENVIRONMENT.md` owns the local setup contract. Exact target-machine Python/PyTorch/CUDA/driver values remain runtime preflight facts and are not guessed from CI.
-
-## Session / evidence integrity status
-
-Repository-owned session behavior now enforces:
-
-```text
-case input SHA-256 snapshot
-→ stage input digest verification
-→ upstream PASS artifact digest verification
-→ explicit invalidation on source change
-→ true dependency resume
-→ semantic artifact validation before PASS
-```
-
-Changing the selected representative GLB invalidates Blender and its true downstream stages while preserving independent Minecraftize primitive evidence.
-
-`minecraftize_primitives` depends on preflight/runtime environment, not on representative `target.blend`.
-
-## Blender preparation status
-
-Prepared-target contract is implemented but not runtime-proven.
-
-Canonical outputs:
-
-```text
-target.blend
-target.json
-```
-
-`target.json` binds:
-
-```text
-selected source path + SHA-256 + stage
-Blender version
-LazyBuilderTarget object name
-target_width_blocks
-world bounds
-canonical axis mapping
-cleanup notes
-target.blend SHA-256
-```
-
-Helper: `kits/lazy-builder/blender/write_target_metadata.py`.
-
-## Minecraftize V0 status
-
-V0 runtime entrypoint is implemented using Blender evaluated geometry + BVH occupancy.
-
-```text
-full_block → SUPPORTED by implementation
-stair      → SKIPPED
-slab       → SKIPPED
-```
-
-Static/pure logic checks are PASS. Actual Blender execution is still `LOCAL RUNTIME PROOF REQUIRED`.
-
-The prepared runtime primitive suite contains:
-
-```text
-3×2×2 boundary box
-5×5×5 true-interior box
-```
-
-The second case requires non-surface/interior evidence so future runtime proof cannot pass only from the near-surface band.
-
-## Canonical preview status
-
-Preview now has one source of truth:
-
-```text
-Minecraftize blocks.json
-→ build_preview.py
-→ preview.svg + manifest.json
-```
-
-The preview manifest binds the exact source/output SHA-256. Preview and schematic export consume the same canonical `blocks.json`.
-
-This deterministic preview exists and is statically verified. Representative visual quality remains runtime/human evidence.
-
-## Schematic writer evidence
-
-Current writer target:
-
-```text
-mcschematic==11.4.4
-Minecraft Java 1.21.4
-Sponge Version 2
-DataVersion 4189
-```
-
-The writer fixture proves file creation, reload, and exact BlockState round-trip for representative full/stair/slab states. The latest M1 smoke run on the hardening commit is PASS.
-
-This proves writer/schema behavior, not Axiom import.
-
-## Axiom static integration baseline
-
-Exact audited baseline remains:
-
-```text
-Axiom 5.3.0 client
-sha256 8026fdb448686cd6db69e69c695fa17f54508f801ddddb3ffeb850b79b04eae5
-Axiom API family 9
-
-AxiomPaper 5.0.1+1.21.4
-sha256 cecafb3e1beba81245ee5bcfc3251052035526b99bb111127b968b09c92d86c8
-Axiom API family 9
-```
-
-AxiomPaper 4.0.4 remains rejected for this baseline because it uses API family 8. AxiomPaper 5.0.4+1.21.4 remains only a conditional upgrade candidate for a matching measured problem or explicit user decision.
-
-Architecture remains:
-
-```text
-LazyBuilder .schem
-→ Axiom 5.3.0 CLIENT parses local file
-→ Clipboard / Placement
-→ client block buffer
-→ AxiomPaper validates session / permission / region / transport
-→ Paper world modification
-```
-
-LazyBuilder still does not need an Axiom protocol implementation or Paper-side schematic parser for MVP.
+AxiomPaper 4.0.4 remains outside the baseline. AxiomPaper 5.0.4+1.21.4 remains only a conditional candidate after measured evidence.
 
 ## Runtime proof status
 
@@ -215,7 +236,7 @@ LazyBuilder still does not need an Axiom protocol implementation or Paper-side s
 HunyuanDiT GPU generation                → LOCAL RUNTIME PROOF REQUIRED
 Hunyuan3D-2mv GPU generation             → LOCAL RUNTIME PROOF REQUIRED
 GLB quality / Blender import             → LOCAL RUNTIME PROOF REQUIRED
-Blender LazyBuilderTarget preparation    → LOCAL RUNTIME PROOF REQUIRED
+Blender target preparation               → LOCAL RUNTIME PROOF REQUIRED
 Minecraftize primitive execution         → LOCAL RUNTIME PROOF REQUIRED
 Minecraftize representative conversion  → LOCAL RUNTIME PROOF REQUIRED
 Axiom import / Clipboard                 → LOCAL RUNTIME PROOF REQUIRED
@@ -223,22 +244,11 @@ AxiomPaper / Paper placement             → LOCAL RUNTIME PROOF REQUIRED
 Minecraft final visual fidelity          → LOCAL RUNTIME PROOF REQUIRED
 ```
 
-The user has explicitly deferred Runtime Acceptance. Do not convert static readiness into runtime PASS.
+## Current conclusion
 
-## Remaining future acceptance input
+At the source/repository level, no known preparation blocker remains. The repository should now be **frozen rather than expanded** until Runtime Acceptance produces real evidence.
 
-No additional repository subsystem is required before the first runtime session.
-
-The future controlled case still needs user-selected content:
-
-```text
-T1 prompt
-I1 front image
-I2 front/right/back/left consistent images
-intentional target_width_blocks
-```
-
-That content is a test fixture decision, not a missing architecture layer.
+This is not a claim that runtime will necessarily PASS; it is a claim that the source has been hardened to avoid several known ways of producing misleading PASS evidence before runtime.
 
 ## Evidence owners
 
@@ -246,12 +256,8 @@ That content is a test fixture decision, not a missing architecture layer.
 generation environment   → kits/lazy-builder/generation/ENVIRONMENT.md
 session/readiness         → kits/lazy-builder/validator/TEST-READINESS.md
 artifact contracts       → kits/lazy-builder/validator/ARTIFACT-CONTRACTS.md
+runtime handoff           → kits/lazy-builder/validator/VALIDATION.md
 Minecraftize             → kits/lazy-builder/minecraftize/CONTRACT.md
-schematic export         → kits/lazy-builder/schematic/EXPORT.md
-Axiom/runtime validation → kits/lazy-builder/validator/VALIDATION.md
+schematic                 → kits/lazy-builder/schematic/EXPORT.md
 active continuation      → docs/knowledge/next-action.md
 ```
-
-## Evidence boundary
-
-Repository/static/CI evidence proves only deterministic preparation and behavior actually executed in CI. Runtime-heavy application behavior requires the exact future local acceptance execution and must remain visibly pending until then.
