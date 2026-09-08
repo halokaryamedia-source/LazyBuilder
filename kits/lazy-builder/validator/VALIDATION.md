@@ -13,17 +13,53 @@
 
 A lower layer does not prove a higher layer.
 
-## MVP runtime acceptance
+## Current M1 status
 
-First end-to-end milestone:
+```text
+Layer 3 writer/round-trip     → PASS
+Layer 4 Axiom import          → LOCAL RUNTIME PROOF REQUIRED
+Layer 5 Minecraft placement   → LOCAL RUNTIME PROOF REQUIRED
+Layer 6 visual result         → LOCAL RUNTIME PROOF REQUIRED
+```
 
-1. programmatically generate a minimal `.schem`;
-2. import it into Axiom;
+Executable writer evidence:
+
+```text
+workflow: M1 Schematic Smoke
+run: 34215078021
+result: PASS
+artifact: lazybuilder-m1-schematic-je-1-21-4
+artifact id: 10051411457
+fixture Minecraft enum: JE_1_21_4
+```
+
+The writer fixture saves and reloads exact BlockStates for:
+
+```text
+minecraft:stone_bricks
+minecraft:stone_brick_stairs[facing=north,half=bottom,shape=straight,waterlogged=false]
+minecraft:stone_slab[type=top,waterlogged=false]
+```
+
+This establishes writer-level compatibility only. `JE_1_21_4` remains the M1 fixture target until actual Axiom/Minecraft testing confirms the intended production compatibility.
+
+## M1 runtime acceptance
+
+Use the **exact generated artifact**, not a hand-created substitute.
+
+1. obtain `lazybuilder_m1_smoke.schem` from artifact `lazybuilder-m1-schematic-je-1-21-4`;
+2. import it through Axiom **Import Schematic**;
 3. confirm it appears in Axiom Clipboard;
 4. place it in the target Minecraft Java world;
-5. record the tested Minecraft/Axiom context and any compatibility limitation.
+5. verify the three blocks appear as:
+   - full stone-bricks block;
+   - stair facing north, bottom half, straight shape;
+   - top stone slab;
+6. record Minecraft version, Axiom version, result, and any compatibility limitation.
 
-This proof should happen **before** sophisticated Minecraftize logic so file/handoff failure is not confused with geometry-conversion failure.
+M1 is end-to-end PASS only after all runtime steps above pass.
+
+This proof happens **before** sophisticated Minecraftize logic so file/handoff failures are not confused with geometry-conversion failures.
 
 ## Later conversion acceptance
 
@@ -34,6 +70,6 @@ This proof should happen **before** sophisticated Minecraftize logic so file/han
 
 ## Evidence language
 
-Use `LOCAL RUNTIME PROOF REQUIRED` when the repository state is ready but actual Hunyuan/Blender/Axiom/Minecraft execution has not been performed.
+Use `LOCAL RUNTIME PROOF REQUIRED` when repository/CI state is ready but the exact Axiom/Minecraft execution has not been performed.
 
 Do not claim PASS from screenshots or downstream manual polish when the exact pre-polish engine output was not inspected.
