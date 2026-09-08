@@ -19,7 +19,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate one reviewable front reference image from text using HunyuanDiT."
     )
-    parser.add_argument("--prompt", required=True)
+    prompt_group = parser.add_mutually_exclusive_group(required=True)
+    prompt_group.add_argument("--prompt")
+    prompt_group.add_argument("--prompt-file")
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--seed", type=int, default=TEXT_DEFAULTS["seed"])
@@ -37,13 +39,28 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def build_plan(args: argparse.Namespace) -> dict:
+def resolve_prompt(args: argparse.Namespace, *, require_exists: bool) -> tuple[str, str | None]:
+    if args.prompt is not None:
+        return args.prompt, None
+    path = Path(args.prompt_file).expanduser()
+    if require_exists and not path.is_file():
+        raise ValueError(f"prompt file does not exist: {path}")
+    if path.is_file():
+        return path.read_text(encoding="utf-8"), str(path.resolve())
+    if require_exists:
+        raise ValueError(f"prompt file does not exist: {path}")
+    return f"<prompt from {path}>", str(path)
+
+
+def build_plan(args: argparse.Namespace, *, require_exists: bool = True) -> dict:
+    prompt, prompt_file = resolve_prompt(args, require_exists=require_exists)
     output_dir = Path(args.output_dir).expanduser()
     return {
         "stage": "text_reference",
         "model": HUNYUANDIT_MODEL,
-        "prompt": args.prompt.strip(),
-        "resolved_prompt": build_reference_prompt(args.prompt),
+        "prompt": prompt.strip(),
+        "prompt_file": prompt_file,
+        "resolved_prompt": build_reference_prompt(prompt),
         "params": {
             "device": args.device,
             "seed": args.seed,
@@ -55,14 +72,14 @@ def build_plan(args: argparse.Namespace) -> dict:
         },
         "outputs": {
             "reference": str(output_dir / "reference_front.png"),
-            "manifest": str(output_dir / "text_reference.json"),
+            "manifest": str(output_dir / "manifest.json"),
         },
         "handoff": "USER_REVIEW_REQUIRED_BEFORE_3D",
     }
 
 
 def run(args: argparse.Namespace) -> int:
-    plan = build_plan(args)
+    plan = build_plan(args, require_exists=not args.dry_run)
     if args.dry_run:
         print(json.dumps(plan, indent=2, sort_keys=True))
         return 0
@@ -73,7 +90,7 @@ def run(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     reference_path = output_dir / "reference_front.png"
-    manifest_path = output_dir / "text_reference.json"
+    manifest_path = output_dir / "manifest.json"
 
     pipe = AutoPipelineForText2Image.from_pretrained(
         HUNYUANDIT_MODEL,
