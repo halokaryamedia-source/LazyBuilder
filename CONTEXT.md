@@ -9,10 +9,14 @@ This file is the stable orientation layer for new sessions and repository Develo
 
 ## Product
 
-LazyBuilder turns non-Minecraft visual references into a Minecraft Java schematic through one intentionally narrow production chain:
+LazyBuilder turns text or non-Minecraft visual references into a Minecraft Java schematic through one intentionally narrow production chain:
 
 ```text
-multi-view reference images
+TEXT (optional)
+→ HunyuanDiT Lite reference image
+→ review / approval
+        ↘
+IMAGE / MULTIVIEW REFERENCES
 → Hunyuan3D-2mv
 → model.glb
 → Blender
@@ -25,13 +29,13 @@ multi-view reference images
 → Minecraft Java world
 ```
 
-The product does not attempt to train a new 3D model. Existing generation is reused; custom development is concentrated on making Blender geometry convert into useful Minecraft-native block placement.
+The product does not train a new 3D model. Existing generation is reused; custom development is concentrated on making Blender geometry convert into useful Minecraft-native block placement.
 
 ## Canonical production sequence
 
 ```text
 Flow 1  Repository Boot & Project Memory
-Flow 2  Reference Intake & Multi-view Recovery
+Flow 2  Reference Intake / Text Reference / Multi-view Recovery
 Flow 3  Hunyuan3D-2mv Shape Generation
 Flow 4  Blender Target Preparation
 Flow 5  Minecraftize Conversion
@@ -61,20 +65,22 @@ After `develop` → `Local` squash promotion, synchronize/reset `develop` to res
 ## Stable authority shape
 
 ```text
-current user instruction
+current user instruction / text intent
 + approved build decisions
 + authoritative reference images / dimensions
-→ generated Hunyuan target hypothesis
+→ approved generated text reference when text mode is used
+→ generated Hunyuan3D target hypothesis
 → cleaned Blender working target
 → Minecraftize block model
 → schematic delivery
 → Axiom/Minecraft runtime evidence
 ```
 
-Authority decreases downstream. Generated 3D, preview, schematic, and final screenshots do not silently redefine the reference requirement.
+Authority decreases downstream. Generated reference images, 3D, preview, schematic, and final screenshots do not silently redefine the upstream requirement.
 
 ## Locked MVP stack
 
+- **Text reference only:** HunyuanDiT v1.2 Diffusers Distilled Lite when the user starts from text.
 - **3D generation:** Hunyuan3D-2mv only.
 - **3D workspace:** Blender 5.2.x LTS.
 - **Custom conversion core:** Blender addon `Minecraftize`.
@@ -82,6 +88,32 @@ Authority decreases downstream. Generated 3D, preview, schematic, and final scre
 - **Schematic format:** Sponge Schematic Version 2 for the current target.
 - **Final client editor / placement:** Axiom.
 - **Target:** Minecraft Java Edition.
+
+HunyuanDiT is not a second 3D provider. It only creates a reviewable 2D reference so text input can enter the same Hunyuan3D-2mv shape path.
+
+## Current generation input contract
+
+```text
+MULTIVIEW (preferred)
+front/right/back/left
+→ Hunyuan3D-2mv
+
+SINGLE CANONICAL VIEW
+front OR right OR back OR left
+→ Hunyuan3D-2mv
+
+TEXT
+→ HunyuanDiT Lite
+→ reference_front.png
+→ user approval
+→ Hunyuan3D-2mv
+```
+
+Do not independently generate four T2I views for MVP. Cross-view identity/proportion drift can make multiview conditioning worse than a single approved canonical reference.
+
+Text-reference and 3D-shape stages run as separate processes so the 8 GB development GPU does not need both models resident simultaneously.
+
+Detailed decision: `docs/knowledge/decisions/text-image-to-3d-input-contract.md`.
 
 ## Current Axiom integration baseline
 
@@ -156,8 +188,10 @@ Detailed model-execution rules are owned by `AGENTS.md` and `.agents/skills/deve
 Do not add by default:
 
 - MCP automation;
-- Tripo, TRELLIS, Pixal3D, or multi-model routing;
+- Tripo, TRELLIS, Pixal3D, Hunyuan3D-2 base, or multi-3D-model routing;
+- automatic four-view T2I generation;
 - custom foundation model training;
+- Hunyuan texture generation;
 - custom schematic/NBT format;
 - direct Minecraft world injection;
 - direct Axiom automation/protocol implementation;
@@ -174,7 +208,7 @@ Do not add by default:
 
 ```text
 intake/        reference-input procedure
-generation/    Hunyuan3D-2mv procedure
+generation/    text-reference + Hunyuan3D-2mv procedure/runtime wrappers
 blender/       target-model preparation contract
 minecraftize/  Minecraft conversion contract and future addon code
 schematic/     export contract
@@ -187,19 +221,22 @@ The public LazyBuilder repository owns the system, not live build/project data.
 
 `workspace/active/` and `workspace/archive/` are local/external mount conventions. Their project subdirectories are ignored by Git; only guidance is tracked.
 
-Do not commit private references, client imagery, generated GLBs, `.blend` work files, output schematics, credentials, Axiom client JARs, or other project production state unless an explicit visibility decision authorizes it and licensing permits it.
+Do not commit private references, client imagery, generated T2I references, generated GLBs, `.blend` work files, output schematics, credentials, Axiom client JARs, model weights, or other project production state unless an explicit visibility decision authorizes it and licensing permits it.
 
 ## Operating direction
 
 - recover repository/project context before asking the user to repeat it;
 - use the smallest owner that can settle the current decision;
-- preserve the single-provider Hunyuan3D-2mv choice until evidence proves it inadequate;
-- complete exact `.schem → Axiom 5.3.0 → AxiomPaper 5.0.1 → Minecraft 1.21.4` runtime proof before M2;
+- preserve Hunyuan3D-2mv as the single 3D provider until evidence proves it inadequate;
+- treat text-generated reference images as generated hypotheses until user approval;
+- run text-reference and 3D shape generation sequentially on the 8 GB GPU;
+- keep M1 exact `.schem → Axiom 5.3.0 → AxiomPaper 5.0.1 → Minecraft 1.21.4` runtime proof visibly pending until executed;
+- explicit user instruction may advance Flow 3 implementation research/scaffolding in parallel, but no runtime PASS is implied;
 - build Minecraftize incrementally: full blocks first, then stairs, then slabs;
 - export tight schematic bounds;
 - preserve canonical Minecraft BlockState strings and exact current DataVersion;
 - add wall/fence/pane/decorative blocks only from real use cases;
-- prefer existing tools over custom infrastructure;
+- prefer existing official tools over copied/custom infrastructure;
 - use Astra6 ExtraHigh reasoning to reduce rework, not to expand scope;
 - keep deterministic calculations and file-format mechanics in code rather than prose/model improvisation;
 - use the cheapest proof that can falsify the active claim;
