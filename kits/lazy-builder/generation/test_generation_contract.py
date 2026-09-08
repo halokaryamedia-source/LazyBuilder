@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from generate_text_reference import build_parser as build_text_parser, build_plan as build_text_plan
+from generate_shape import build_parser as build_shape_parser, build_plan as build_shape_plan
 from runtime_contract import (
     HUNYUAN3D_MODEL,
     HUNYUAN3D_SUBFOLDER,
@@ -55,6 +57,25 @@ class GenerationContractTests(unittest.TestCase):
         self.assertEqual(SHAPE_DEFAULTS["octree_resolution"], 256)
         self.assertEqual(SHAPE_DEFAULTS["num_chunks"], 8000)
         self.assertEqual(SHAPE_DEFAULTS["seed"], 12345)
+
+    def test_prompt_file_and_stage_manifest_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            prompt_file = root / "prompt.txt"
+            prompt_file.write_text("compact stone station", encoding="utf-8")
+            args = build_text_parser().parse_args(
+                ["--prompt-file", str(prompt_file), "--output-dir", str(root / "out")]
+            )
+            plan = build_text_plan(args)
+            self.assertEqual(Path(plan["outputs"]["manifest"]).name, "manifest.json")
+            self.assertEqual(plan["prompt"], "compact stone station")
+
+    def test_shape_manifest_contract(self) -> None:
+        args = build_shape_parser().parse_args(
+            ["--front", "/tmp/front.png", "--output-dir", "/tmp/shape", "--dry-run"]
+        )
+        plan = build_shape_plan(args, require_exists=False)
+        self.assertEqual(Path(plan["outputs"]["manifest"]).name, "manifest.json")
 
 
 if __name__ == "__main__":
