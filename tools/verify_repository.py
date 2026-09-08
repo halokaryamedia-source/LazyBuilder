@@ -58,9 +58,11 @@ REQUIRED_PATHS = [
     "docs/knowledge/decisions/README.md",
     "docs/knowledge/decisions/recording-policy.md",
     "docs/knowledge/decisions/branch-governance.md",
+    "docs/knowledge/decisions/execution-modes-local-remote-github.md",
     "docs/knowledge/decisions/single-hunyuan-provider.md",
     "docs/knowledge/decisions/minecraftize-core-boundary.md",
     "docs/knowledge/decisions/anti-overdevelopment-simplification.md",
+    "docs/knowledge/decisions/astra6-extrahigh-development-profile.md",
     "docs/knowledge/reviews/README.md",
     "docs/knowledge/reviews/audit-template.md",
     "docs/knowledge/reviews/current-validation.md",
@@ -142,6 +144,10 @@ def check_skill_shape(errors: list[str]) -> None:
         if not (root / skill / "SKILL.md").is_file():
             fail(errors, f"missing SKILL.md for canonical skill: {skill}")
 
+    for forbidden in ("local", "remote_github"):
+        if (root / forbidden).exists():
+            fail(errors, f"execution mode must not become a root skill: {forbidden}")
+
 
 def check_kit_shape(errors: list[str]) -> None:
     kits_root = ROOT / "kits"
@@ -177,6 +183,40 @@ def check_branch_contract(errors: list[str]) -> None:
         for marker in ("Squash and merge", "normal merge commit", "exactly one new commit"):
             if marker not in text:
                 fail(errors, f"CONTRIBUTING.md missing promotion marker: {marker}")
+
+
+def check_execution_modes(errors: list[str]) -> None:
+    owners = [
+        "GITHUB_RULES.md",
+        "docs/knowledge/work-routing.md",
+        "docs/knowledge/work-modes/development.md",
+    ]
+    for rel in owners:
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in ("remote_github", "`local`", "`Local`"):
+            if marker not in text:
+                fail(errors, f"{rel} missing execution-mode marker: {marker}")
+
+    rules = ROOT / "GITHUB_RULES.md"
+    if rules.is_file():
+        text = rules.read_text(encoding="utf-8")
+        for marker in (
+            "local  = execution mode",
+            "Local  = verified integration branch",
+            "git pull --ff-only origin develop",
+        ):
+            if marker not in text:
+                fail(errors, f"GITHUB_RULES.md missing execution-mode contract: {marker}")
+
+    decision = ROOT / "docs" / "knowledge" / "decisions" / "execution-modes-local-remote-github.md"
+    if decision.is_file():
+        text = decision.read_text(encoding="utf-8")
+        for marker in ("remote_github", "local  = execution mode", "Local  = verified integration branch"):
+            if marker not in text:
+                fail(errors, f"execution-mode decision missing marker: {marker}")
 
 
 def check_product_markers(errors: list[str]) -> None:
@@ -223,6 +263,7 @@ def main() -> int:
     check_skill_shape(errors)
     check_kit_shape(errors)
     check_branch_contract(errors)
+    check_execution_modes(errors)
     check_product_markers(errors)
     check_markdown_links(errors)
 

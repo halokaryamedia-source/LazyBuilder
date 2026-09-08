@@ -19,6 +19,31 @@ main
 
 Routine repository work happens on `develop`. Do not make routine changes directly on `Local` or `main`.
 
+## Local workspace start
+
+`local` is the execution mode for a real clone/worktree/runtime. It is not branch `Local`.
+
+For an ordinary clean start:
+
+```bash
+git fetch origin
+git switch develop
+git status --short
+git pull --ff-only origin develop
+```
+
+If `git status --short` shows work that matters, preserve it before synchronization. Do not use destructive reset as the normal local-start procedure.
+
+After local implementation:
+
+```text
+run targeted local proof
+→ review diff
+→ commit logical result on develop
+→ push develop
+→ use remote_github for remote CI/PR/promotion checks when needed
+```
+
 ### Promote `develop` → `Local`
 
 Use a dedicated pull request when one coherent development outcome is ready for the verified baseline.
@@ -37,13 +62,15 @@ one approved develop → Local promotion
 = exactly +1 commit on Local
 ```
 
-For a local clone, preserve any uncommitted work first, then:
+A local clone may still contain the pre-squash `develop` chain. Preserve any uncommitted/unpublished work that still matters first, then:
 
 ```bash
 git fetch origin
 git switch develop
 git reset --hard origin/develop
 ```
+
+The hard reset above is a **post-squash reconciliation procedure**, not the routine local-start command.
 
 ### Promote `Local` → `main`
 
@@ -74,7 +101,7 @@ Future executable Minecraftize changes should add targeted tests when the behavi
 - `Repository Verify` is the current static repository safety net.
 - `Local Promotion Verify` is the integration boundary for `develop` → `Local`.
 - `Release Verify` is the stable boundary for `Local` → `main`.
-- Hunyuan, Blender, Axiom, and Minecraft runtime claims remain local-runtime evidence and are not proved by GitHub CI.
+- Hunyuan, Blender, Axiom, and Minecraft runtime claims require `local` runtime evidence and are not proved by GitHub CI.
 
 ## Commit discipline
 

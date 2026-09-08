@@ -1,6 +1,6 @@
 # Work Routing
 
-Root `AGENTS.md` is the canonical top-level work-mode/boot authority. This file explains the route only when more context is needed. Product Flow remains separately owned by `docs/foundation/01-production-flow.md`.
+Root `AGENTS.md` is the canonical top-level work-mode/boot authority. This file explains the route only when more context is needed. Product Flow remains separately owned by `docs/foundation/01-production-flow.md`; exact execution-mode mechanics remain owned by root `GITHUB_RULES.md`.
 
 ## Routing overview
 
@@ -25,7 +25,12 @@ Development
 Maintenance
 → concrete defect
 → first wrong owner
+
+then, when execution is required:
+→ choose remote_github or local
 ```
+
+Work mode answers **what kind of work this is**. Execution mode answers **where/how the work should run**. They are separate decisions.
 
 ## Context recovery is not implementation
 
@@ -56,7 +61,7 @@ AGENTS.md
 
 After this bootstrap, further reading remains bounded.
 
-## Mode boundaries
+## Work-mode boundaries
 
 ### Plan
 
@@ -73,6 +78,67 @@ Use when changing LazyBuilder itself: repository policy, Hunyuan procedure, Blen
 ### Maintenance
 
 Use for bugs, regressions, cleanup, stale routing/docs, and behavior-preserving corrections. Begin from the concrete defect and first wrong owner.
+
+## Execution-mode routing
+
+Canonical execution modes:
+
+```text
+remote_github
+local
+```
+
+### `remote_github`
+
+Use for bounded repository-native work:
+
+- exact remote state inspection;
+- small text/documentation changes that safely fit GitHub operations;
+- branches/refs;
+- PR/review operations;
+- CI/workflow inspection;
+- remote verification and promotion.
+
+### `local`
+
+Use when real workspace/runtime capability matters:
+
+- source coding or coordinated multi-file patches;
+- dependencies/build/tests;
+- binary/heavy artifacts;
+- Hunyuan GPU execution;
+- Blender;
+- Axiom;
+- Minecraft;
+- real Git staging/diff semantics when they materially help.
+
+Important:
+
+```text
+local  = execution mode
+Local  = verified integration branch
+```
+
+`local` work normally happens on branch `develop`, not branch `Local`.
+
+### Normal hybrid cycle
+
+```text
+remote_github
+→ recover current remote authority when needed
+→ select task owner
+
+local
+→ implement/build/run when local capability is required
+→ targeted proof
+→ commit + push develop
+
+remote_github
+→ confirm pushed state / CI
+→ PR or promotion only when requested/required
+```
+
+If a remote task exposes a genuine local requirement, switch to `local` instead of creating GitHub Actions or helper architecture to simulate a local machine.
 
 ## Product/technical routing
 

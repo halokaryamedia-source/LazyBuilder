@@ -9,6 +9,7 @@ Current execution does **not** start from historical decision prose. Use `../nex
 | Decision | Current status / owner |
 |---|---|
 | Repository Development uses `develop`, `Local` is one-squash-commit-per-approved-milestone history, and `main` is stable merge-boundary history | [branch-governance.md](branch-governance.md) |
+| Repository execution uses `remote_github` for fitting GitHub-native work and `local` for real workspace/runtime work; lowercase `local` is not branch `Local` | [execution-modes-local-remote-github.md](execution-modes-local-remote-github.md) |
 | Hunyuan3D-2mv is the only active 3D generation provider for MVP | [single-hunyuan-provider.md](single-hunyuan-provider.md) |
 | Custom development concentrates on Minecraftize; Blender is the workbench, `mcschematic` the writer, Axiom the downstream editor/placement tool | [minecraftize-core-boundary.md](minecraftize-core-boundary.md) |
 | GPT Astra 6 ExtraHigh is the preferred Development operator profile; repository context stays compact, evidence-first, deterministic where possible, and model-portable | [astra6-extrahigh-development-profile.md](astra6-extrahigh-development-profile.md) |

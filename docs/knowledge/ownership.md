@@ -7,15 +7,17 @@ Use this file only to answer **who owns what**. Exact procedure/contracts remain
 | Boundary | Owner |
 |---|---|
 | Top-level boot, work modes, continuity, authority, skill budget | `AGENTS.md` |
-| GitHub branch/ref, write/history, CI/API/safety | `GITHUB_RULES.md` |
+| Execution-mode selection (`remote_github` / `local`), GitHub branch/ref, write/history, CI/API/transfer safety | `GITHUB_RULES.md` |
 | Stable repository/product orientation | `CONTEXT.md` |
-| Contribution and promotion procedure | `CONTRIBUTING.md` |
+| Contribution, local synchronization, and promotion procedure | `CONTRIBUTING.md` |
 | Public-repository data handling | `SECURITY.md` |
 | Active continuation | `docs/knowledge/next-action.md` |
 | Source/state precedence | `docs/knowledge/source-authority.md` |
 | Current validation evidence | `docs/knowledge/reviews/current-validation.md` |
 | Durable decisions/rationale | `docs/knowledge/decisions/` |
 | Future/non-active work | `docs/knowledge/operations/backlog.md` |
+
+Execution-mode rationale lives in `docs/knowledge/decisions/execution-modes-local-remote-github.md`; it does not create another execution-policy owner.
 
 ## Repository areas
 
@@ -65,6 +67,9 @@ Future Minecraftize source/test ownership should be added here only when those f
 ```text
 Who owns this?
 → ownership.md
+
+Which execution mode fits?
+→ GITHUB_RULES.md
 
 What durable product policy applies?
 → docs/foundation/
