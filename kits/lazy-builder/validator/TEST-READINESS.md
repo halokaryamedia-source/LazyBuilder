@@ -1,192 +1,142 @@
 # End-to-End Test Readiness
 
-Status: canonical design for the first LazyBuilder local acceptance session.
+Status: deterministic scaffolding implemented; local runtime remains deferred.
 
-This file defines how the complete Flow 2–6 chain must be prepared **before** local runtime testing starts.
+This owner defines the first LazyBuilder local acceptance session. The goal is one prepared run across Flow 2–6, not a sequence of disconnected experiments.
 
-## Objective
-
-The first local test should feel like executing a prepared product pipeline, not debugging one tool at a time.
+## Locked chain
 
 ```text
-prepare once
-→ execute a known session
-→ capture every artifact/evidence consistently
-→ stop only for required human/runtime boundaries
-→ resume from the first invalidated stage after a real failure
-```
-
-Local GPU, Blender, Axiom, Paper, and Minecraft execution remains deferred until this contract reaches `TEST_READY` and the user explicitly starts the local session.
-
-Repository/static CI may run meanwhile.
-
-## Locked chain under test
-
-```text
-TEXT (optional)
-→ HunyuanDiT v1.1 reference
-→ review / approval
-        ↘
-IMAGE / SINGLE / MULTIVIEW
+T1 TEXT
+→ HunyuanDiT v1.1
+→ reference_front.png
+→ human approval
 → Hunyuan3D-2mv
-→ model.glb
-→ Blender 5.2.x LTS target
-→ Minecraftize
-→ canonical block model
+→ 19-shape-text/model.glb
+
+I1 SINGLE IMAGE
+→ Hunyuan3D-2mv
+→ 20-shape-single/model.glb
+
+I2 MULTIVIEW
+front/right/back/left
+→ Hunyuan3D-2mv
+→ 21-shape-multiview/model.glb
+
+all three shape proofs
+→ select one representative GLB
+→ Blender 5.2.x LTS
+→ Minecraftize primitives
+→ Minecraftize representative model
+→ canonical blocks.json
 → mcschematic 11.4.4
-→ Sponge V2 .schem / DataVersion 4189
+→ Sponge V2 / DataVersion 4189 .schem
 → Axiom 5.3.0
 → AxiomPaper 5.0.1 + Paper 1.21.4
 → Minecraft Java 1.21.4
 ```
 
-No alternate 3D provider, automatic variant router, MCP, direct Axiom automation, or custom schematic format is part of this session.
+Hunyuan3D-2mv remains the only 3D provider. No Fast/Turbo router, second provider, texture pipeline, Axiom automation, or custom schematic format is part of this session.
 
-## TEST_READY gate
-
-All items below must be satisfied before local runtime starts.
-
-### A. Session control
-
-- one canonical session directory layout is defined;
-- one run ID owns all outputs for one acceptance attempt;
-- stage statuses and resume behavior are defined;
-- commands/entrypoints for executable repository-owned stages are known;
-- manual application stages have exact operator steps and evidence requirements;
-- no stage depends on chat history to remember parameters.
-
-### B. Input fixtures
-
-The first acceptance batch contains three generation inputs:
+## Repository-owned readiness tooling
 
 ```text
-T1  TEXT
-    one bounded prompt used only to prove text → approved reference
+validator/case.template.json
+→ canonical T1/I1/I2 case shape
 
-I1  SINGLE IMAGE
-    one canonical front reference
+validator/session_contract.py
+→ case/session schema + stage dependency contract
 
-I2  MULTIVIEW
-    consistent front + right + back + left references
+validator/session_controller.py
+→ init/status/next/mark/select-shape/invalidate
+
+validator/acceptance_report.py
+→ consolidated PASS/FAIL/BLOCKED/PARTIAL report
+
+minecraftize/block_model.py
+→ canonical deterministic blocks.json model
+
+minecraftize/fixtures/primitive_cases.json
+minecraftize/build_primitive_fixture.py
+→ static primitive data-contract fixture
+
+schematic/export_blocks.py
+→ canonical blocks.json → mcschematic → build.schem
+
+tools/verify_test_readiness.py
+.github/workflows/test-readiness-verify.yml
+→ deterministic/static CI proof only
 ```
 
-The object/build used for I1/I2 should be geometrically clear enough to judge silhouette and orientation. The test is not intended to maximize artistic quality.
+The primitive fixture proves the block-model/serializer contract only. It does **not** prove the future Minecraftize geometry classifier.
 
-T1 does not require four independently generated T2I views.
+## Canonical local package
 
-### C. Downstream fixtures
-
-Minecraftize validation contains two classes in the same acceptance session:
-
-```text
-P1  PRIMITIVES
-    full block
-    stair orientation/half/shape cases
-    slab top/bottom/double where supported
-
-R1  REPRESENTATIVE MODEL
-    one Blender-prepared Hunyuan result converted through the same engine
-```
-
-Primitive correctness proves BlockState behavior. R1 proves that primitives compose into a useful real conversion.
-
-### D. Artifact contracts
-
-Every stage must have an explicit input, output, and evidence record before runtime begins.
-
-### E. Failure ownership
-
-Every stage must map a failure to its first likely owner. A test should never require redesigning the whole repository merely because one stage fails.
-
-## Canonical local session layout
-
-Live test data remains ignored/local and is never required in the public repository.
-
-Recommended structure:
+Before the first local acceptance session, copy `case.template.json` to the ignored workspace and replace the example values with the selected real fixture.
 
 ```text
 workspace/active/lazybuilder-e2e/
 ├── case.json
 ├── inputs/
-│   ├── text/
-│   │   └── prompt.txt
-│   ├── single/
-│   │   └── front.png
+│   ├── text/prompt.txt
+│   ├── single/front.png
 │   └── multiview/
 │       ├── front.png
 │       ├── right.png
 │       ├── back.png
 │       └── left.png
-└── runs/
-    └── <run-id>/
-        ├── session.json
-        ├── 00-preflight/
-        │   └── environment.json
-        ├── 10-reference/
-        │   ├── reference_front.png
-        │   └── manifest.json
-        ├── 20-shape-single/
-        │   ├── model.glb
-        │   └── manifest.json
-        ├── 21-shape-multiview/
-        │   ├── model.glb
-        │   └── manifest.json
-        ├── 30-blender/
-        │   ├── target.blend
-        │   └── target.json
-        ├── 40-minecraftize-primitives/
-        │   ├── blocks.json
-        │   └── report.json
-        ├── 41-minecraftize-model/
-        │   ├── blocks.json
-        │   └── report.json
-        ├── 50-schematic/
-        │   ├── build.schem
-        │   └── manifest.json
-        ├── 60-axiom/
-        │   └── runtime.json
-        └── acceptance-report.json
+└── runs/<run-id>/
+    ├── session.json
+    ├── 00-preflight/environment.json
+    ├── 10-reference/
+    │   ├── reference_front.png
+    │   └── manifest.json
+    ├── 19-shape-text/
+    │   ├── model.glb
+    │   └── manifest.json
+    ├── 20-shape-single/
+    │   ├── model.glb
+    │   └── manifest.json
+    ├── 21-shape-multiview/
+    │   ├── model.glb
+    │   └── manifest.json
+    ├── 30-blender/
+    │   ├── target.blend
+    │   └── target.json
+    ├── 40-minecraftize-primitives/
+    │   ├── blocks.json
+    │   └── report.json
+    ├── 41-minecraftize-model/
+    │   ├── blocks.json
+    │   └── report.json
+    ├── 50-schematic/
+    │   ├── build.schem
+    │   └── manifest.json
+    ├── 60-axiom/runtime.json
+    └── acceptance-report.json
 ```
 
-Screenshots may be stored beside the relevant runtime record when useful. They are supporting evidence, not a substitute for exact stage data.
+Generated/live files remain ignored project data.
 
-## Session state contract
+## Case contract
 
-`session.json` is the single continuation record for the acceptance run.
-
-Minimum fields:
+The first real `case.json` contains exactly:
 
 ```text
-schema_version
-run_id
-created_at
-minecraft_version
-stage_order
-active_stage
-status
-inputs
-artifacts
-stages[]
+T1 text prompt file
+I1 one canonical front image
+I2 consistent front/right/back/left images
+target_width_blocks
+Minecraft target 1.21.4
 ```
 
-Each stage record contains:
+The controller snapshots input paths and SHA-256 digests into `session.json` so the run does not depend on chat history.
 
-```text
-id
-status
-input_paths
-input_digests
-output_paths
-output_digests
-parameters
-started_at
-finished_at
-metrics
-notes
-failure_class
-```
+T1, I1, and I2 should normally describe the same bounded object/build when comparing input modes. They do not need to be artistically complex; geometry/orientation must be judgeable.
 
-Allowed stage status values:
+## Session state
+
+Allowed stage states:
 
 ```text
 PENDING
@@ -199,305 +149,182 @@ BLOCKED
 SKIPPED
 ```
 
-A successful stage becomes immutable evidence for that run unless an upstream change invalidates it.
-
-## Resume semantics
+Canonical stages:
 
 ```text
-all upstream stages PASS
-→ start at first PENDING/READY stage
-
-stage FAIL
-→ preserve outputs/logs
-→ fix first wrong owner
-→ mark only invalidated stage/downstream as stale
-→ resume from first invalidated stage
-
-upstream input changes
-→ invalidate every dependent downstream artifact
+preflight
+text_reference
+shape_text
+shape_single
+shape_multiview
+blender
+minecraftize_primitives
+minecraftize_model
+schematic
+axiom
 ```
 
-Do not delete prior failed outputs; keep them isolated under the run ID or a new run ID so comparison remains possible.
+`PASS` requires every declared output file to exist, be non-empty, and be digested into the session record.
 
-## Phase 0 — environment preflight
+When a stage starts, declared input files are also digested.
 
-Capture once at session start:
+## Dependency / resume semantics
+
+Invalidation follows the dependency graph, not simple file order.
+
+Example:
 
 ```text
-OS + build
-CPU
-system RAM
-GPU
-exact VRAM
-NVIDIA driver
-CUDA runtime/toolkit state
-Python version(s)
-PyTorch version
-free disk
-Blender version
-Java version
-Minecraft version
-Fabric Loader
-Fabric API
-Axiom client version + hash
-Paper version/build
-AxiomPaper version + hash
-OP/permission state
-ViaVersion / WorldGuard / PlotSquared / CoreProtect presence
+I1 / shape_single changes
+→ invalidate shape_single
+→ invalidate Blender and its true downstream dependents
+→ keep valid shape_text and shape_multiview evidence
 ```
 
-Preflight records facts. It should not silently upgrade packages or modify Minecraft server policy.
+A stage snapshot is retained in its history before invalidation. Existing failed files are not deleted automatically.
 
-Acceptance:
+This allows one acceptance run to resume from the first actually invalidated owner.
+
+## Human gates
+
+Only genuine application/semantic boundaries require user intervention:
+
+1. review/approve T1 `reference_front.png`;
+2. choose the representative GLB after the three shape paths are available;
+3. Blender visual cleanup/target judgment;
+4. Axiom/Minecraft import, placement, and final visual verification.
+
+Do not ask for a new confirmation after every successful deterministic script stage.
+
+## Stage acceptance
+
+### Preflight
+
+Record exact environment facts without silently installing/upgrading packages or modifying server policy.
+
+Required evidence includes OS, CPU/RAM, GPU/VRAM, NVIDIA/CUDA, Python/PyTorch, free disk, Blender, Java, Minecraft/Fabric, Axiom client/hash, Paper build, AxiomPaper/hash, permission state, and relevant optional Paper integrations.
+
+### Text reference
 
 ```text
-required executable/runtime components are discoverable
-+ versions are recorded
-+ no known locked-stack mismatch is present
+generate_text_reference.py
+→ reference_front.png
+→ manifest.json
+→ APPROVAL_REQUIRED
 ```
 
-## Phase 1 — reference coverage
+A poor reference invalidates only T1/text-origin work.
 
-### T1 text reference
+### Shape coverage
 
-Execute the existing text-reference runner with the pinned model/defaults.
-
-Expected output:
+Standard Hunyuan3D-2mv only:
 
 ```text
-reference_front.png
-manifest.json
+approved T1 → 19-shape-text/model.glb
+I1          → 20-shape-single/model.glb
+I2          → 21-shape-multiview/model.glb
 ```
 
-Human gate:
+Record generation parameters, runtime, peak VRAM when measurable, mesh size, and major defects.
+
+### Blender
+
+All shape paths must be available before comparison/selection. The selected source is recorded explicitly.
+
+Use `../blender/TARGET-MODEL.md`:
 
 ```text
-reference acceptable for intended object/build
-→ PASS
-
-reference materially wrong
-→ REJECT / regenerate only this stage
+Blender +Z up / -Y front
+Minecraft X = Blender X
+Minecraft Y = Blender Z
+Minecraft Z = -Blender Y
 ```
 
-This is the only mandatory semantic approval before text-generated imagery may enter shape generation.
+The target scale is driven by the explicit `target_width_blocks` (or another explicitly approved target dimension), never guessed from Blender units.
 
-### I1 single image
+### Minecraftize primitives
 
-Validate one canonical named view and record its digest.
+The static primitive fixture already protects canonical BlockState/data-model behavior. Runtime primitive PASS still requires the actual Minecraftize engine entrypoint to produce its own `blocks.json` and `report.json`.
 
-### I2 multiview
-
-Validate front/right/back/left consistency and record each digest.
-
-Do not attempt automatic image repair or cross-view synthesis during the first acceptance session.
-
-## Phase 2 — Hunyuan3D shape coverage
-
-Run Standard Hunyuan3D-2mv only.
-
-Required outputs:
-
-```text
-I1 → 20-shape-single/model.glb
-I2 → 21-shape-multiview/model.glb
-```
-
-The approved T1 reference may also be run as a single-view input to prove the text-origin path.
-
-Record per generation:
-
-```text
-model + subfolder
-steps
-guidance
-octree
-num_chunks
-seed
-background removal
-runtime
-peak VRAM when measurable
-output size
-major geometry defects
-```
-
-Acceptance is not “perfect mesh”. It is:
-
-```text
-GLB generated
-+ opens as structurally valid geometry
-+ preserves enough intended silhouette/proportion to justify Blender/Minecraft conversion
-```
-
-Fast/Turbo comparison is excluded from the first session.
-
-## Phase 3 — Blender target preparation
-
-Use `../blender/TARGET-MODEL.md` as the exact target contract.
-
-One representative generated GLB is selected for downstream conversion. Selection is recorded; the source file is never silently replaced.
-
-Expected outputs:
-
-```text
-target.blend
-target.json
-```
-
-`target.json` records at minimum:
-
-```text
-source GLB digest
-chosen source case
-front/up convention
-target width in blocks
-source bounds
-prepared bounds
-applied transforms
-cleanup operations
-remaining known defects
-```
-
-Acceptance:
-
-```text
-import works
-+ orientation is canonical
-+ target scale is intentional
-+ severe floating/noisy geometry is removed or documented
-+ remaining defects are cheaper to evaluate in Minecraftize than to continue mesh cleanup
-```
-
-## Phase 4 — Minecraftize primitive acceptance
-
-Use `../minecraftize/CONTRACT.md`.
-
-Primitive tests are executed in one batch before the representative model is trusted.
-
-Required proof order:
+Required engine coverage remains:
 
 ```text
 full block
-→ straight stairs (4 facings × relevant halves)
-→ stair corner shapes when implemented
-→ slabs
-→ mixed primitive composition
+straight stairs: 4 facings × relevant halves
+corner shapes when implemented
+slab top/bottom/double when supported
+mixed composition
 ```
 
-Each produced block is represented canonically as:
+A not-yet-implemented engine feature is `SKIPPED`, never fake PASS.
 
-```text
-x
-y
-z
-block_state
-source_reason / classifier label when useful for diagnosis
-```
+### Representative Minecraftize model
 
-Acceptance:
+The same converter runs on the selected Blender target.
 
-- no duplicate coordinate with conflicting state;
-- canonical valid BlockState strings;
-- deterministic output for same normalized input + settings;
-- primitive orientation/half/shape matches expected fixture.
+Acceptance is bounded to recognizable silhouette, intentional scale/proportion, no catastrophic converter holes/noise, deterministic output, and explainable block-family use.
 
-A feature not yet implemented is `SKIPPED`, not a fake PASS.
+### Schematic
 
-## Phase 5 — representative Minecraftize conversion
+`schematic/export_blocks.py` consumes the exact representative canonical `blocks.json`.
 
-Run the same converter on the selected Blender target.
-
-Expected outputs:
-
-```text
-blocks.json
-report.json
-```
-
-Record:
-
-```text
-target dimensions
-occupied block count
-full/stair/slab counts
-unsupported/ambiguous cells
-conversion settings
-runtime
-```
-
-Quality acceptance for the first end-to-end session is intentionally bounded:
-
-```text
-recognizable silhouette
-+ intentional scale/proportion retained
-+ no catastrophic holes/noise caused by converter
-+ block-state mix is explainable
-```
-
-Do not require final artistic polish before the pipeline itself is proven.
-
-## Phase 6 — schematic export
-
-Serialize the representative block model with the existing pinned writer.
-
-Expected:
+It writes:
 
 ```text
 build.schem
 manifest.json
 ```
 
-Acceptance:
+and reloads the same file with mcschematic to verify exact BlockState round-trip for every emitted coordinate before Axiom runtime is attempted.
 
-```text
-Sponge Version 2
-DataVersion 4189
-tight bounds
-round-trip/parser check succeeds where applicable
-sampled coordinates retain exact BlockState strings
-```
+### Axiom / Paper / Minecraft
 
-The existing M1 primitive smoke remains a useful static fixture, but the representative build file is the artifact used for final Axiom acceptance.
+Use `VALIDATION.md` and the exact `50-schematic/build.schem` produced by the same run.
 
-## Phase 7 — Axiom / Paper / Minecraft acceptance
-
-Use the exact process in `VALIDATION.md`.
-
-One runtime record captures:
+Final PASS requires:
 
 ```text
 Axiom import
-Clipboard appearance
-Placement creation
-AxiomPaper handshake/permission state
-world placement
-sample block-state orientation
-final visible result
+→ Clipboard
+→ Placement
+→ AxiomPaper/Paper acceptance
+→ Minecraft world placement
+→ sampled state/orientation verification
 ```
 
-Final end-to-end PASS requires the **exact representative `build.schem` produced by this run** to reach the Minecraft world.
+No manually rebuilt substitute counts as end-to-end proof.
 
-Do not substitute a manually rebuilt schematic.
+## Controller usage for the future local session
 
-## Consolidated acceptance report
+Initialize once:
 
-`acceptance-report.json` is generated/filled only after the session finishes or is intentionally stopped.
-
-Minimum summary:
-
-```text
-run_id
-overall_status
-first_failed_stage
-passed_stages
-failed_stages
-blocked_stages
-selected representative artifact
-runtime metrics
-known limitations
-follow-up owner
+```bash
+python kits/lazy-builder/validator/session_controller.py init \
+  --case workspace/active/lazybuilder-e2e/case.json \
+  --run-id <run-id> \
+  --runs-dir workspace/active/lazybuilder-e2e/runs
 ```
 
-Possible overall statuses:
+Then use:
+
+```bash
+python kits/lazy-builder/validator/session_controller.py next --session <session.json>
+python kits/lazy-builder/validator/session_controller.py status --session <session.json>
+```
+
+The controller returns the exact next command/action and expected outputs.
+
+State/evidence changes use `mark`, `select-shape`, and `invalidate`. The controller is a run-state coordinator; it does not bypass required human application boundaries.
+
+## Consolidated report
+
+At an intentional stop or session completion:
+
+```bash
+python kits/lazy-builder/validator/acceptance_report.py --session <session.json>
+```
+
+Possible overall states:
 
 ```text
 PASS
@@ -506,92 +333,17 @@ BLOCKED
 PARTIAL
 ```
 
-`PARTIAL` means some stage evidence exists but the end-to-end claim is not complete.
+A lower static layer never upgrades an unexecuted Hunyuan/Blender/Axiom/Minecraft claim to PASS.
 
-## First-failure routing
+## Current blocker before TEST_READY
 
-```text
-preflight mismatch
-→ environment/bootstrap owner
+The readiness harness is implemented, but the real acceptance session is **not open yet**.
 
-text output wrong
-→ text/reference owner
+Still required before `TEST_READY_AWAITING_LOCAL_ACCEPTANCE`:
 
-shape startup/VRAM failure
-→ generation environment/profile owner
+1. implement the actual deterministic Minecraftize engine entrypoint that consumes the prepared target and produces canonical `blocks.json`/`report.json`;
+2. connect its primitive suite to the repository-owned cases rather than the static contract fixture alone;
+3. select/populate the actual T1/I1/I2 fixture pack and target width;
+4. perform one final dry-run of controller paths without launching GPU/Blender/Axiom/Minecraft runtime.
 
-shape geometry unusable
-→ generation/reference owner
-
-GLB cannot be normalized/imported
-→ Blender target owner
-
-primitive BlockState wrong
-→ Minecraftize primitive owner
-
-representative silhouette wrong after correct Blender target
-→ Minecraftize conversion owner
-
-blocks.json correct but .schem wrong
-→ schematic exporter owner
-
-.schem valid but Axiom import fails
-→ Axiom/client compatibility owner
-
-Clipboard correct but world placement fails
-→ AxiomPaper/permission/world owner
-
-world blocks place with wrong orientation
-→ first wrong Minecraftize/export BlockState owner
-```
-
-## Human-effort policy
-
-The test session should minimize repeated user intervention.
-
-Required human interaction is limited to actions that genuinely cannot be inferred safely:
-
-1. text-reference approval when T1 is used;
-2. Blender visual inspection/cleanup judgment;
-3. Axiom/Minecraft manual import/placement and final visual inspection.
-
-Do not require separate confirmation after every successful script stage.
-
-## What may be prepared before local testing
-
-The following work is explicitly allowed before any local runtime test:
-
-- complete stage/interface design;
-- manifest/session schema implementation;
-- deterministic CLI/session controller;
-- dry-run and static contract tests;
-- Blender helper/operator design and non-runtime-safe source work;
-- Minecraftize data model, transform rules, primitive fixtures, and deterministic unit tests that do not depend on the unproven Hunyuan output;
-- schematic/report integration;
-- CI checks that do not claim GPU/Blender/Axiom/Minecraft runtime success.
-
-## What remains forbidden before explicit local-test start
-
-```text
-no Hunyuan GPU proof
-no Blender application proof
-no Axiom import proof
-no Minecraft placement proof
-```
-
-Do not report those as PASS from design, mocks, or CI.
-
-## Completion definition for design phase
-
-The design phase is complete when:
-
-```text
-all Flow 2–6 interfaces are explicit
-+ test cases are explicit
-+ artifacts are explicit
-+ failure/resume rules are explicit
-+ human gates are explicit
-+ one future session can execute without inventing procedure mid-test
-```
-
-The next repository-development phase may implement the remaining non-runtime scaffolding against this contract. Local runtime starts only after the readiness gate is deliberately opened.
+Until then, local runtime remains intentionally deferred.
