@@ -16,6 +16,7 @@ on:
       - "LICENSE"
       - ".gitignore"
       - ".gitattributes"
+      - "requirements.txt"
       - ".github/**"
       - ".agents/skills/**"
       - "docs/foundation/**"
