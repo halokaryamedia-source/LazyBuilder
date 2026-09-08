@@ -24,6 +24,38 @@ main     → stable repository history
 
 Repository behavior is routed by [AGENTS.md](AGENTS.md); GitHub execution policy by [GITHUB_RULES.md](GITHUB_RULES.md); stable product orientation by [CONTEXT.md](CONTEXT.md).
 
+## Execution Modes
+
+LazyBuilder uses two work channels:
+
+```text
+remote_github
+→ remote repository state, bounded docs/policy, branch/ref, PR, CI, promotion
+
+local
+→ source coding, dependencies/build/tests, binary artifacts,
+  Hunyuan, Blender, Axiom, Minecraft runtime
+```
+
+Important naming rule:
+
+```text
+local  = execution mode
+Local  = verified integration branch
+```
+
+Normal source development in `local` mode still uses branch `develop`.
+
+Typical cycle:
+
+```text
+remote_github → pin/recover remote authority when needed
+local         → implement + targeted proof + commit/push develop
+remote_github → confirm remote state/CI → PR/promotion when required
+```
+
+Do not create GitHub Actions or helper infrastructure merely to emulate a local runtime.
+
 ## Locked MVP Stack
 
 - **Hunyuan3D-2mv** — only active 3D generator.
@@ -77,8 +109,9 @@ tools/               repository verification
 ## Working Principle
 
 ```text
-identify mode
+identify work mode
 → find first wrong/changed owner
+→ select remote_github or local
 → read only required context
 → change the canonical owner
 → run the proof that can falsify the changed claim
@@ -87,7 +120,7 @@ identify mode
 
 ## Status
 
-LazyBuilder is pre-MVP. Repository operating structure is being standardized before executable Minecraftize work begins.
+LazyBuilder is pre-MVP. Repository operating structure is established; executable product milestones are still pending runtime proof.
 
 ## License
 
