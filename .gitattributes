@@ -1,0 +1,5 @@
+# Binary production artifacts should never receive text diffs if a deliberate fixture is tracked later.
+*.blend -text -diff
+*.glb -text -diff
+*.schem -text -diff
+*.schematic -text -diff

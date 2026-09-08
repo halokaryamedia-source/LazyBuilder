@@ -1,56 +1,94 @@
 # LazyBuilder
 
-LazyBuilder adalah project R&D untuk mengubah referensi non-Minecraft menjadi struktur Minecraft Java yang bisa diekspor sebagai `.schem` dan dimuat di Axiom.
+LazyBuilder is an AI-assisted R&D system for converting non-Minecraft visual references into Minecraft Java structures that can be exported as `.schem` and loaded in Axiom.
 
-## Target utama
+## Input → Output
+
+| Input | Processing | Output |
+|---|---|---|
+| Multi-view reference images | Hunyuan3D-2mv shape generation | `model.glb` |
+| Generated GLB | Blender target preparation | cleaned working target |
+| Blender target | Minecraftize conversion | Minecraft block preview |
+| Minecraft block model | `mcschematic` export | `.schem` |
+| `.schem` | Axiom import / placement | Minecraft Java world structure |
+
+The generated 3D mesh is not the final product. LazyBuilder's custom value is the **Minecraftize** stage that converts target geometry into increasingly Minecraft-native block usage.
+
+## Branch Model
 
 ```text
-Multi-view images
-→ Hunyuan3D-2mv
-→ GLB
-→ Blender
-→ Minecraftize
-→ .schem
-→ Axiom
-→ Minecraft Java
+develop  → active repository development
+Local    → clean verified integration baseline; one squash commit per approved update
+main     → stable repository history
 ```
 
-Fokus utama project bukan membuat AI 3D baru. Kita memakai model yang sudah ada untuk membuat draft 3D, lalu fokus development pada konversi mesh Blender menjadi bentuk Minecraft yang lebih native dan rapi.
+Repository behavior is routed by [AGENTS.md](AGENTS.md); GitHub execution policy by [GITHUB_RULES.md](GITHUB_RULES.md); stable product orientation by [CONTEXT.md](CONTEXT.md).
 
-## Stack yang dikunci
+## Locked MVP Stack
 
-- **3D generation:** Hunyuan3D-2mv saja.
-- **3D workspace:** Blender 5.2.x LTS.
-- **Minecraft conversion:** custom Blender addon `Minecraftize`.
-- **Schematic writer:** `mcschematic`.
-- **Final editor / placement:** Axiom.
-- **Target:** Minecraft Java Edition.
+- **Hunyuan3D-2mv** — only active 3D generator.
+- **Blender 5.2.x LTS** — 3D workbench.
+- **Minecraftize** — custom Blender conversion addon/core.
+- **mcschematic** — schematic writer.
+- **Axiom** — final import/edit/placement environment.
+- **Minecraft Java Edition** — target game.
 
-## Prinsip development
+No MCP or multi-model routing is part of the MVP.
 
-- Satu model 3D saja: **Hunyuan3D-2mv**.
-- Tidak memakai MCP pada MVP.
-- Tidak memakai Tripo, TRELLIS, Pixal3D, atau router multi-model.
-- Tidak membuat format schematic sendiri.
-- Tidak membuat renderer, AI critic, training dataset, atau architecture engine sebelum dibutuhkan.
-- Pakai tool existing sebanyak mungkin; custom development hanya pada bagian yang belum tersedia dengan kualitas yang kita butuhkan.
+## Product Flow
 
-## Branch policy
+```text
+Flow 1  Repository Boot & Project Memory
+Flow 2  Reference Intake & Multi-view Recovery
+Flow 3  Hunyuan3D-2mv Shape Generation
+Flow 4  Blender Target Preparation
+Flow 5  Minecraftize Conversion
+Flow 6  Schematic Validation & Axiom Handoff
+```
 
-- `main` — branch default/stabil. Hanya menerima pekerjaan yang sudah layak dipromosikan.
-- `Local` — branch kerja aktif untuk seluruh development, eksperimen, dokumentasi, dan testing.
+## Current Development Strategy
 
-> Semua pekerjaan saat ini dilakukan di `Local`.
+Development is output-driven:
 
-## MVP
+```text
+prove .schem → Axiom
+→ prove Hunyuan3D-2mv → Blender
+→ full-block Minecraftize
+→ stairs
+→ slabs
+→ first real building
+→ add other block families only when a real case requires them
+```
 
-MVP dianggap berhasil ketika pipeline berikut benar-benar berjalan end-to-end:
+Do not build a sophisticated optimizer, custom renderer, model router, or automation layer before the simpler pipeline proves a specific need.
 
-1. Multi-view reference masuk ke Hunyuan3D-2mv.
-2. Hasil `.glb` dapat diimpor ke Blender.
-3. `Minecraftize` dapat menghasilkan preview full-block.
-4. Hasil dapat diekspor menjadi `.schem`.
-5. `.schem` dapat dimuat ke Axiom dan ditempatkan di Minecraft Java.
-6. Tahap berikutnya menambahkan **stairs** dan **slabs** agar bentuk tidak sekadar voxel cube.
+## Repository Map
 
-Dokumentasi detail tersedia di [`docs/`](docs/).
+```text
+.agents/skills/      reusable Development / Production judgment
+docs/foundation/     durable production-flow policy
+docs/knowledge/      continuation, ownership, decisions, evidence, backlog
+kits/lazy-builder/   production procedure + implementation owner
+workspace/           ignored local/external project-package convention
+tools/               repository verification
+.github/             CI / ownership / promotion policy
+```
+
+## Working Principle
+
+```text
+identify mode
+→ find first wrong/changed owner
+→ read only required context
+→ change the canonical owner
+→ run the proof that can falsify the changed claim
+→ stop
+```
+
+## Status
+
+LazyBuilder is pre-MVP. Repository operating structure is being standardized before executable Minecraftize work begins.
+
+## License
+
+LazyBuilder is publicly accessible for development convenience but is not open source. See [LICENSE](LICENSE).
