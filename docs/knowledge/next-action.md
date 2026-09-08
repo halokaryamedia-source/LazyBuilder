@@ -2,11 +2,11 @@
 
 ## Current Status
 
-`M2_INPUT_TO_3D_IMPLEMENTATION_READY_LOCAL_RUNTIME_REQUIRED`
+`E2E_TEST_READINESS_DESIGN_COMPLETE_RUNTIME_DEFERRED`
 
-The repository operating system, Astra6 profile, execution-mode routing, M1 writer/Axiom research baseline, and the image/text→3D implementation contract are now established.
+The repository operating system, Astra6 profile, execution-mode routing, M1 writer/Axiom research baseline, image/text→3D runners, and the complete Flow 2–6 unified acceptance design are established.
 
-The user explicitly advanced Flow 2/3 generation implementation while the exact M1 Axiom/Paper/Minecraft runtime proof remains pending. This does **not** mark M1 PASS.
+The user explicitly does **not** want local runtime testing yet. Do not start Hunyuan GPU, Blender, Axiom, Paper, or Minecraft runtime proof until the test-readiness implementation is complete and the user explicitly starts that session.
 
 Branch state:
 
@@ -16,203 +16,209 @@ Local   → verified integration milestone
 main    → stable repository history
 ```
 
-## Locked input-to-3D architecture
+## Locked pipeline
 
 ```text
-IMAGE / MULTIVIEW
-front / right / back / left
-→ Hunyuan3D-2mv
-→ model.glb
-
-TEXT
+TEXT (optional)
 → Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
 → reference_front.png
 → USER REVIEW / APPROVAL
+        ↘
+IMAGE / SINGLE / MULTIVIEW
 → Hunyuan3D-2mv
 → model.glb
+→ Blender 5.2.x LTS
+→ Minecraftize
+→ canonical blocks.json
+→ mcschematic==11.4.4
+→ Sponge V2 .schem / DataVersion 4189
+→ Axiom 5.3.0
+→ AxiomPaper 5.0.1 + Paper 1.21.4
+→ Minecraft Java 1.21.4
 ```
 
-Hunyuan3D-2mv remains the **only 3D provider**. HunyuanDiT is only an auxiliary 2D reference generator.
+Hunyuan3D-2mv remains the only 3D provider. HunyuanDiT is only the optional text-reference generator.
 
-The temporary/unverified `HunyuanDiT v1.2 Distilled Lite` label is retired from the active contract.
+## Unified acceptance decision
 
-## Implemented repository runners
+The first local runtime effort will be one prepared acceptance session rather than a series of isolated stage tests.
+
+Canonical owners:
 
 ```text
-kits/lazy-builder/generation/runtime_contract.py
-kits/lazy-builder/generation/generate_text_reference.py
-kits/lazy-builder/generation/generate_shape.py
-kits/lazy-builder/generation/test_generation_contract.py
+docs/knowledge/decisions/unified-local-acceptance-session.md
+kits/lazy-builder/validator/TEST-READINESS.md
 ```
 
-Text and shape are separate processes so the 8 GB GPU does not need both models resident simultaneously.
-
-## First-proof text baseline
+The session covers:
 
 ```text
-model: Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
-steps: 25
-PAG scale: 1.3
-size: 1024 × 1024
-seed: 0
-offload: model CPU offload
-output: reference_front.png
-handoff: USER_REVIEW_REQUIRED_BEFORE_3D
+preflight once
+→ T1 text-reference path
+→ I1 single-image path
+→ I2 multiview path
+→ choose representative GLB
+→ Blender target preparation
+→ Minecraftize primitive batch
+→ representative Minecraftize conversion
+→ schematic export
+→ Axiom import / Clipboard / Placement
+→ Minecraft world verification
+→ consolidated acceptance report
 ```
 
-## First-proof shape baseline
+A failure preserves valid upstream evidence and resumes from the first invalidated stage.
+
+## Test-session data contract
+
+Planned local package:
 
 ```text
-model: tencent/Hunyuan3D-2mv
-subfolder: hunyuan3d-dit-v2-mv
-steps: 30
-guidance_scale: 7.5
-octree_resolution: 256
-num_chunks: 8000
-seed: 12345
-background removal: ON
-texture: OFF
-output: model.glb
+workspace/active/lazybuilder-e2e/
+├── case.json
+├── inputs/
+└── runs/<run-id>/
+    ├── session.json
+    ├── 00-preflight/
+    ├── 10-reference/
+    ├── 20-shape-single/
+    ├── 21-shape-multiview/
+    ├── 30-blender/
+    ├── 40-minecraftize-primitives/
+    ├── 41-minecraftize-model/
+    ├── 50-schematic/
+    ├── 60-axiom/
+    └── acceptance-report.json
 ```
 
-Fast/Turbo variants are not routed automatically. Standard is proven first.
-
-## Next Step — local generation runtime proof
-
-Use `local` mode. Repository/CI proof is not GPU runtime proof.
-
-### 1. Environment preflight
-
-Record:
+Allowed stage state:
 
 ```text
-OS
-GPU + exact VRAM
-NVIDIA driver
-Python
-PyTorch
-CUDA
-system RAM
-free disk
+PENDING
+READY
+RUNNING
+APPROVAL_REQUIRED
+PASS
+FAIL
+BLOCKED
+SKIPPED
 ```
 
-### 2. Text-reference proof
+Generated/live artifacts remain ignored local project data.
 
-Run one bounded prompt:
+## Established stage contracts
 
-```bash
-python kits/lazy-builder/generation/generate_text_reference.py \
-  --prompt "<test object/building>" \
-  --output-dir workspace/active/generation-proof/generated/text
-```
+### Flow 2/3 — input/generation
 
-Record:
+Repository runners already exist for:
 
 ```text
-reference generated yes/no
-runtime
-peak VRAM
-major visual defects
+text → canonical reference
+single/multiview → Hunyuan3D-2mv GLB
 ```
 
-### 3. Approval gate
+No local GPU proof is claimed yet.
 
-Inspect `reference_front.png` before shape generation.
+### Flow 4 — Blender
+
+Canonical target contract now defines:
 
 ```text
-APPROVED
-→ continue
-
-REJECTED
-→ fix/regenerate only the text-reference stage
+Blender up    +Z
+Blender front -Y
+Minecraft X =  Blender X
+Minecraft Y =  Blender Z
+Minecraft Z = -Blender Y
 ```
 
-Do not silently continue from a poor text-generated reference.
+Primary scale input is an explicit target dimension such as `target_width_blocks`, not arbitrary Blender units.
 
-### 4. Single-view shape proof
+The raw imported source remains recoverable; a separate prepared target is sampled by Minecraftize.
 
-Use the approved front image:
+### Flow 5 — Minecraftize
 
-```bash
-python kits/lazy-builder/generation/generate_shape.py \
-  --front workspace/active/generation-proof/generated/text/reference_front.png \
-  --output-dir workspace/active/generation-proof/generated/shape-single
-```
-
-Record:
+Design is an explicit deterministic pass pipeline:
 
 ```text
-model/subfolder
-parameters
-runtime
-peak VRAM
-model.glb generated
-mesh defects
+normalize grid
+→ occupancy candidates
+→ full-block baseline
+→ surface classification
+→ stairs
+→ stair corners when implemented
+→ slabs
+→ conflict resolution
+→ preview + canonical blocks.json
 ```
 
-### 5. Multiview shape proof
+Primitive fixtures prove state correctness; one representative prepared model proves composition.
 
-When a consistent source set is available, repeat with front/right/back/left and compare against the single-view result.
+### Flow 6 — schematic/Axiom
 
-Do not change provider/variant during the first controlled proof.
+The existing `mcschematic` writer contract and Axiom 1.21.4 research/static baseline remain authoritative.
 
-### 6. Blender compatibility proof
+The representative `build.schem` from the same run—not a manually rebuilt substitute—must be the file used for final Axiom/Minecraft acceptance.
 
-Open the exact generated `model.glb` in Blender 5.2.x LTS and record:
+## Next Step — non-runtime test-readiness implementation
+
+Continue on `develop` without local runtime execution.
+
+Implement the smallest deterministic scaffolding required by `validator/TEST-READINESS.md`:
+
+1. session/case manifest schema + validation;
+2. run-state/resume controller for repository-owned script stages;
+3. canonical `blocks.json` schema/helpers;
+4. deterministic Minecraftize primitive fixtures/tests that do not depend on Hunyuan runtime;
+5. acceptance-report generation/aggregation;
+6. dry-run/static contract coverage tying stage paths and statuses together.
+
+Blender/Axiom remain manual/runtime surfaces; do not build automation merely to remove those manual boundaries.
+
+## TEST_READY threshold
+
+Do not start the local acceptance session until the repository can answer all of these without inventing procedure at test time:
 
 ```text
-import success
-orientation
-scale sanity
-mesh integrity
-major floating/noisy geometry
+what input fixture is used?
+what exact command/action is next?
+what artifact is expected?
+where is it stored?
+what is PASS/FAIL?
+what evidence is recorded?
+which owner handles failure?
+where does a resumed run continue?
 ```
 
-Only after a usable GLB is proven should Minecraftize runtime implementation begin.
+Only then may the state advance to `TEST_READY_AWAITING_LOCAL_ACCEPTANCE`.
 
-## Failure routing
+## Existing runtime evidence remains unchanged
+
+Still `LOCAL RUNTIME PROOF REQUIRED`:
 
 ```text
-text model fails to start
-→ HunyuanDiT environment / PyTorch / CUDA / offload
-
-text image runs but concept is wrong
-→ text/reference stage only
-
-shape model fails to start
-→ Hunyuan3D environment / extension / PyTorch / CUDA / VRAM
-
-single view works, multiview fails
-→ named-view consistency / multiview runtime
-
-GLB generated but Blender rejects it
-→ generation/export compatibility
-
-mesh looks imperfect
-→ determine whether defect matters after Minecraft discretization before changing variants/providers
+HunyuanDiT GPU generation
+Hunyuan3D-2mv GPU generation
+GLB import/preparation in Blender 5.2.x
+representative Minecraftize conversion quality
+Axiom 5.3.0 import / Clipboard
+AxiomPaper handshake / placement
+Minecraft final placement / visual state
 ```
 
-## M1 runtime remains pending
-
-Still required before M1 can be called end-to-end PASS:
-
-```text
-Axiom 5.3.0 import
-Clipboard
-AxiomPaper 5.0.1 handshake/placement
-Minecraft BlockState verification
-```
+M1 writer/static evidence remains PASS but M1 end-to-end runtime remains pending.
 
 ## Stop Boundary
 
 Do not automatically:
 
+- start any local runtime test;
+- install/run Hunyuan models locally;
+- launch Blender/Axiom/Minecraft for proof;
 - add Tripo / TRELLIS / Pixal3D / another 3D provider;
 - add Hunyuan3D-2 base as a parallel path;
-- add Fast/Turbo routing;
+- add automatic Fast/Turbo routing;
 - generate four independent T2I views;
 - enable Hunyuan texture generation;
-- combine Hunyuan runtime with Blender Python;
-- implement Minecraftize runtime before first usable GLB proof;
-- add MCP/API-server orchestration;
+- add MCP/API-server/background orchestration;
+- automate Axiom directly;
 - promote `develop` to `Local` or `Local` to `main`.

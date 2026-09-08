@@ -14,6 +14,7 @@ Current execution does **not** start from historical decision prose. Use `../nex
 | Custom development concentrates on Minecraftize; Blender is the workbench, `mcschematic` the writer, Axiom the downstream editor/placement tool | [minecraftize-core-boundary.md](minecraftize-core-boundary.md) |
 | GPT Astra 6 ExtraHigh is the preferred Development operator profile; repository context stays compact, evidence-first, deterministic where possible, and model-portable | [astra6-extrahigh-development-profile.md](astra6-extrahigh-development-profile.md) |
 | Do not add providers, frameworks, optimization layers, automation, or compatibility machinery without demonstrated need | [anti-overdevelopment-simplification.md](anti-overdevelopment-simplification.md) |
+| Local runtime proof is deferred until Flow 2–6 are prepared for one resumable end-to-end acceptance session rather than disconnected exploratory stage tests | [unified-local-acceptance-session.md](unified-local-acceptance-session.md) |
 | Formal durable decision records require a real cross-session/cross-owner reason | [recording-policy.md](recording-policy.md) |
 
 ## How to Read Decisions
