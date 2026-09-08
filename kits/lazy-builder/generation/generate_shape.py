@@ -65,7 +65,7 @@ def build_plan(args: argparse.Namespace, *, require_exists: bool) -> dict:
         },
         "outputs": {
             "glb": str(output_dir / "model.glb"),
-            "manifest": str(output_dir / "generation.json"),
+            "manifest": str(output_dir / "manifest.json"),
         },
         "handoff": "GENERATED_GLB_RUNTIME_REVIEW_REQUIRED",
     }
@@ -85,7 +85,7 @@ def run(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     glb_path = output_dir / "model.glb"
-    manifest_path = output_dir / "generation.json"
+    manifest_path = output_dir / "manifest.json"
 
     prepared_images = {}
     remover = None if args.keep_background else BackgroundRemover()
