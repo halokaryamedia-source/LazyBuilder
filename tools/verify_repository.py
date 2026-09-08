@@ -30,11 +30,13 @@ REQUIRED_PATHS = [
     "LICENSE",
     ".gitignore",
     ".gitattributes",
+    "requirements.txt",
     ".github/CODEOWNERS",
     ".github/PULL_REQUEST_TEMPLATE.md",
     ".github/workflows/repository-verify.yml",
     ".github/workflows/local-promotion-verify.yml",
     ".github/workflows/release-verify.yml",
+    ".github/workflows/m1-schematic-smoke.yml",
     ".agents/skills/development-brief/SKILL.md",
     ".agents/skills/build-production/SKILL.md",
     "docs/foundation/README.md",
@@ -78,6 +80,7 @@ REQUIRED_PATHS = [
     "kits/lazy-builder/minecraftize/CONTRACT.md",
     "kits/lazy-builder/schematic/EXPORT.md",
     "kits/lazy-builder/validator/VALIDATION.md",
+    "tools/m1_schematic_smoke.py",
     "workspace/README.md",
     "workspace/active/README.md",
     "workspace/archive/README.md",
@@ -143,7 +146,6 @@ def check_skill_shape(errors: list[str]) -> None:
     for skill in CANONICAL_SKILLS:
         if not (root / skill / "SKILL.md").is_file():
             fail(errors, f"missing SKILL.md for canonical skill: {skill}")
-
     for forbidden in ("local", "remote_github"):
         if (root / forbidden).exists():
             fail(errors, f"execution mode must not become a root skill: {forbidden}")
@@ -236,6 +238,45 @@ def check_product_markers(errors: list[str]) -> None:
             fail(errors, f"CONTEXT.md missing locked product marker: {marker}")
 
 
+def check_m1_contract(errors: list[str]) -> None:
+    requirements = ROOT / "requirements.txt"
+    if requirements.is_file():
+        lines = [line.strip() for line in requirements.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if lines != ["mcschematic==11.4.4"]:
+            fail(errors, f"M1 writer dependency drift: expected only mcschematic==11.4.4, got {lines}")
+
+    script = ROOT / "tools" / "m1_schematic_smoke.py"
+    if script.is_file():
+        text = script.read_text(encoding="utf-8")
+        for marker in (
+            'DEFAULT_VERSION = "JE_1_21_4"',
+            "minecraft:stone_bricks",
+            "minecraft:stone_brick_stairs[facing=north,half=bottom,shape=straight,waterlogged=false]",
+            "minecraft:stone_slab[type=top,waterlogged=false]",
+            "MCSchematic(str(schem_path))",
+            "getBlockStateAt(position)",
+        ):
+            if marker not in text:
+                fail(errors, f"M1 smoke script missing contract marker: {marker}")
+
+    workflow = ROOT / ".github" / "workflows" / "m1-schematic-smoke.yml"
+    if workflow.is_file():
+        text = workflow.read_text(encoding="utf-8")
+        for marker in (
+            "M1 Schematic Smoke",
+            "m1_schematic_smoke.py",
+            "JE_1_21_4",
+            "lazybuilder-m1-schematic-je-1-21-4",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+        ):
+            if marker not in text:
+                fail(errors, f"M1 workflow missing contract marker: {marker}")
+
+    gitignore = ROOT / ".gitignore"
+    if gitignore.is_file() and "artifacts/" not in gitignore.read_text(encoding="utf-8"):
+        fail(errors, ".gitignore must ignore generated artifacts/")
+
+
 def check_markdown_links(errors: list[str]) -> None:
     for path in iter_markdown_files():
         text = path.read_text(encoding="utf-8")
@@ -265,6 +306,7 @@ def main() -> int:
     check_branch_contract(errors)
     check_execution_modes(errors)
     check_product_markers(errors)
+    check_m1_contract(errors)
     check_markdown_links(errors)
 
     if errors:
