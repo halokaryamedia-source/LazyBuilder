@@ -302,12 +302,12 @@ def check_axiom_contract(errors: list[str]) -> None:
             "Axiom 5.3.0",
             "AxiomPaper 5.0.1+1.21.4",
             "AxiomPaper 4.0.4",
-            "API version 8",
+            "API version is 8",
             "AxiomPaper `5.0.4+1.21.4`",
-            "upgrade candidate",
+            "## Upgrade policy",
             "Sponge Schematic Version 2",
             "DataVersion 4189",
-            "client parses file locally",
+            "CLIENT parses file locally",
         ):
             if marker not in text:
                 fail(errors, f"Axiom decision missing marker: {marker}")
