@@ -8,7 +8,9 @@ Working branch: `develop`.
 Verified integration baseline: `Local`.  
 Stable branch: `main`.
 
-LazyBuilder remains **pre-MVP**. The PRD-Creator-style repository operating/documentation baseline is now verified and promoted to `Local`; product runtime is not yet claimed.
+LazyBuilder remains **pre-MVP**. The PRD-Creator-style repository operating/documentation baseline is verified and promoted to `Local`; product runtime is not yet claimed.
+
+The current `develop` cycle additionally defines **GPT Astra 6 ExtraHigh** as the preferred repository Development operator profile while keeping repository authority and executable proof model-portable.
 
 ## Current production chain
 
@@ -65,6 +67,35 @@ The verified baseline establishes:
 - static repository and promotion gates;
 - retirement of old duplicate `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, and `docs/TOOLS.md` owners.
 
+## Astra6 ExtraHigh development-profile evidence
+
+Current development-profile change:
+
+```text
+438b08b9249658281eb589df55c3deffd00a7231
+docs(governance): optimize development flow for Astra6 ExtraHigh
+```
+
+Repository verification:
+
+```text
+Repository Verify
+run 34207246235
+Static repository contract → PASS
+```
+
+The change establishes these current Development boundaries:
+
+- Astra6 receives a compact task packet after canonical boot: Goal, Owner, constraints/out-of-scope, 2–5 acceptance criteria, proof budget, and exact evidence/failure;
+- default post-boot expansion stays at 1–3 additional owner files unless a real dependency requires more;
+- Astra6 reasoning owns requirement/architecture/tradeoff/root-cause work;
+- deterministic code owns repeatable geometry, coordinate, BlockState, serialization, and test invariants;
+- Hunyuan, Blender, Axiom, and Minecraft claims require matching runtime proof;
+- no Astra-specific skill/framework/MCP layer was introduced;
+- repository memory remains the durable authority so another capable model/developer can reproduce current state without hidden reasoning history.
+
+This profile is verified as repository/documentation policy only. It is not a claim that one model configuration is universally superior or that product runtime behavior is proven.
+
 ## Product/runtime proof status
 
 Not yet claimed:
@@ -80,4 +111,4 @@ These require actual matching local runtime evidence and will be recorded only a
 
 ## Evidence boundary
 
-GitHub/static verification proves repository contracts only. It does not prove GPU generation, Blender behavior, Axiom import, Minecraft placement, or subjective visual fidelity.
+GitHub/static verification proves repository contracts only. It does not prove GPU generation, Blender behavior, Axiom import, Minecraft placement, subjective visual fidelity, or the relative quality of a model configuration.
