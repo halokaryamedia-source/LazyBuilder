@@ -32,6 +32,8 @@ three GLBs
 
 ## Source-audit hardening
 
+The pre-runtime evidence policy is explicitly **fail-closed**: missing, mismatched, stale, or unverifiable evidence must block PASS rather than be treated as an acceptable unknown.
+
 Repository preparation intentionally rejects several false-green conditions:
 
 ```text
