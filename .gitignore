@@ -16,6 +16,9 @@ htmlcov/
 !.env.example
 *.log
 
+# Generated validation/build artifacts
+artifacts/
+
 # Blender local residue
 *.blend1
 *.blend2
