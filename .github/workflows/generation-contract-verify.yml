@@ -1,0 +1,73 @@
+name: Generation Contract Verify
+
+on:
+  push:
+    branches:
+      - develop
+      - Local
+    paths:
+      - 'CONTEXT.md'
+      - 'docs/foundation/02-reference-intake.md'
+      - 'docs/foundation/03-hunyuan-generation.md'
+      - 'docs/knowledge/decisions/single-hunyuan-provider.md'
+      - 'docs/knowledge/decisions/text-image-to-3d-input-contract.md'
+      - 'docs/knowledge/next-action.md'
+      - 'kits/lazy-builder/intake/**'
+      - 'kits/lazy-builder/generation/**'
+      - '.github/workflows/generation-contract-verify.yml'
+  pull_request:
+    branches:
+      - Local
+    paths:
+      - 'CONTEXT.md'
+      - 'docs/foundation/02-reference-intake.md'
+      - 'docs/foundation/03-hunyuan-generation.md'
+      - 'docs/knowledge/decisions/single-hunyuan-provider.md'
+      - 'docs/knowledge/decisions/text-image-to-3d-input-contract.md'
+      - 'docs/knowledge/next-action.md'
+      - 'kits/lazy-builder/intake/**'
+      - 'kits/lazy-builder/generation/**'
+      - '.github/workflows/generation-contract-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-generation-contract:
+    name: Static input-to-3D contract
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Run generation contract unit tests
+        working-directory: kits/lazy-builder/generation
+        run: python -m unittest -v test_generation_contract.py
+
+      - name: Verify text-reference dry run
+        working-directory: kits/lazy-builder/generation
+        run: |
+          python generate_text_reference.py \
+            --prompt "compact stone station with a clock tower" \
+            --output-dir /tmp/lazybuilder-text \
+            --dry-run | tee /tmp/text-plan.json
+          grep -F 'Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled' /tmp/text-plan.json
+          grep -F 'USER_REVIEW_REQUIRED_BEFORE_3D' /tmp/text-plan.json
+
+      - name: Verify multiview shape dry run
+        working-directory: kits/lazy-builder/generation
+        run: |
+          python generate_shape.py \
+            --front /tmp/front.png \
+            --right /tmp/right.png \
+            --output-dir /tmp/lazybuilder-shape \
+            --dry-run | tee /tmp/shape-plan.json
+          grep -F 'tencent/Hunyuan3D-2mv' /tmp/shape-plan.json
+          grep -F 'hunyuan3d-dit-v2-mv' /tmp/shape-plan.json
+          grep -F '"num_chunks": 8000' /tmp/shape-plan.json
+          grep -F '"texture": false' /tmp/shape-plan.json
