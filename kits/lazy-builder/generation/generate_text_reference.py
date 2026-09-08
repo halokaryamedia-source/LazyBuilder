@@ -9,6 +9,7 @@ from pathlib import Path
 from runtime_contract import (
     HUNYUANDIT_MODEL,
     HUNYUANDIT_MODEL_REVISION,
+    HUNYUANDIT_PIPELINE,
     TEXT_DEFAULTS,
     TEXT_NEGATIVE_PROMPT,
     build_reference_prompt,
@@ -28,7 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--seed", type=int, default=TEXT_DEFAULTS["seed"])
     parser.add_argument("--steps", type=int, default=TEXT_DEFAULTS["steps"])
-    parser.add_argument("--pag-scale", type=float, default=TEXT_DEFAULTS["pag_scale"])
+    parser.add_argument(
+        "--guidance-scale", type=float, default=TEXT_DEFAULTS["guidance_scale"]
+    )
     parser.add_argument("--width", type=int, default=TEXT_DEFAULTS["width"])
     parser.add_argument("--height", type=int, default=TEXT_DEFAULTS["height"])
     parser.add_argument(
@@ -57,9 +60,16 @@ def resolve_prompt(args: argparse.Namespace, *, require_exists: bool) -> tuple[s
 def build_plan(args: argparse.Namespace, *, require_exists: bool = True) -> dict:
     prompt, prompt_file = resolve_prompt(args, require_exists=require_exists)
     output_dir = Path(args.output_dir).expanduser()
+    if args.steps <= 0:
+        raise ValueError("steps must be positive")
+    if args.guidance_scale < 0:
+        raise ValueError("guidance scale must be non-negative")
+    if args.width <= 0 or args.height <= 0:
+        raise ValueError("image width/height must be positive")
     return {
         "schema_version": 1,
         "stage": "text_reference",
+        "pipeline": HUNYUANDIT_PIPELINE,
         "model": HUNYUANDIT_MODEL,
         "model_revision": HUNYUANDIT_MODEL_REVISION,
         "prompt": prompt.strip(),
@@ -69,7 +79,7 @@ def build_plan(args: argparse.Namespace, *, require_exists: bool = True) -> dict
             "device": args.device,
             "seed": args.seed,
             "steps": args.steps,
-            "pag_scale": args.pag_scale,
+            "guidance_scale": args.guidance_scale,
             "width": args.width,
             "height": args.height,
             "offload": args.offload,
@@ -89,35 +99,33 @@ def run(args: argparse.Namespace) -> int:
         return 0
 
     import torch
-    from diffusers import AutoPipelineForText2Image
+    from diffusers import HunyuanDiTPipeline
 
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     reference_path = output_dir / "reference_front.png"
     manifest_path = output_dir / "manifest.json"
 
-    pipe = AutoPipelineForText2Image.from_pretrained(
+    pipe = HunyuanDiTPipeline.from_pretrained(
         HUNYUANDIT_MODEL,
         revision=HUNYUANDIT_MODEL_REVISION,
         torch_dtype=torch.float16,
-        enable_pag=True,
-        pag_applied_layers=["blocks.(16|17|18|19)"],
     )
 
     if args.offload == "model":
-        pipe.enable_model_cpu_offload()
+        pipe.enable_model_cpu_offload(device=args.device)
     elif args.offload == "sequential":
-        pipe.enable_sequential_cpu_offload()
+        pipe.enable_sequential_cpu_offload(device=args.device)
     else:
         pipe.to(args.device)
 
-    generator_device = "cuda" if str(args.device).startswith("cuda") else "cpu"
+    generator_device = str(args.device) if str(args.device).startswith("cuda") else "cpu"
     generator = torch.Generator(device=generator_device).manual_seed(args.seed)
     image = pipe(
         prompt=plan["resolved_prompt"],
         negative_prompt=TEXT_NEGATIVE_PROMPT,
         num_inference_steps=args.steps,
-        pag_scale=args.pag_scale,
+        guidance_scale=args.guidance_scale,
         width=args.width,
         height=args.height,
         generator=generator,

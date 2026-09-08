@@ -20,6 +20,7 @@ from block_model import read_blocks_json
 
 MCSCHEMATIC_VERSION = "JE_1_21_4"
 DATA_VERSION = 4189
+ROUND_TRIP_SAMPLE_LIMIT = 64
 
 
 def sha256_file(path: Path) -> str:
@@ -28,6 +29,14 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _sample_indexes(count: int, limit: int = ROUND_TRIP_SAMPLE_LIMIT) -> set[int]:
+    if count <= limit:
+        return set(range(count))
+    first = limit // 2
+    last = limit - first
+    return set(range(first)) | set(range(count - last, count))
 
 
 def export_blocks(blocks_path: Path, output_dir: Path, *, name: str = "build") -> tuple[Path, Path]:
@@ -48,14 +57,16 @@ def export_blocks(blocks_path: Path, output_dir: Path, *, name: str = "build") -
 
     reloaded = mcschematic.MCSchematic(str(schem_path))
     sampled = []
-    for block in payload["blocks"]:
+    sample_indexes = _sample_indexes(payload["block_count"])
+    for index, block in enumerate(payload["blocks"]):
         coordinate = (block["x"], block["y"], block["z"])
         actual = reloaded.getBlockStateAt(coordinate)
         if actual != block["block_state"]:
             raise RuntimeError(
                 f"BlockState round-trip mismatch at {coordinate}: expected {block['block_state']}, got {actual}"
             )
-        sampled.append({"coordinate": list(coordinate), "block_state": actual})
+        if index in sample_indexes:
+            sampled.append({"coordinate": list(coordinate), "block_state": actual})
 
     manifest = {
         "schema_version": 1,
@@ -71,6 +82,7 @@ def export_blocks(blocks_path: Path, output_dir: Path, *, name: str = "build") -
         "source_bounds": payload["bounds"],
         "output": str(schem_path.resolve()),
         "output_sha256": sha256_file(schem_path),
+        "round_trip_verified_block_count": payload["block_count"],
         "round_trip_samples": sampled,
         "status": "WRITER_ROUND_TRIP_PASS_RUNTIME_AXIOM_REQUIRED",
     }

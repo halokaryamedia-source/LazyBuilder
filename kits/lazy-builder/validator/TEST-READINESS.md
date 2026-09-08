@@ -2,60 +2,82 @@
 
 Status: `PRE_RUNTIME_SYSTEM_READY_RUNTIME_NOT_STARTED`.
 
-This file keeps its historical filename for repository continuity, but the phase is now named **Pre-Runtime Verification**. It must not be confused with the later **Runtime Acceptance Test**.
+This historical filename remains for continuity. The phase is **Pre-Runtime Verification**, not the later **Runtime Acceptance Test**.
 
-No Hunyuan GPU generation, Blender conversion, Axiom import, Paper placement, or Minecraft placement is claimed by this status.
+No Hunyuan inference, Blender conversion, Axiom import, Paper placement, or Minecraft placement is claimed by this status.
 
 ## Canonical product path
 
 ```text
 T1 TEXT
-→ pinned HunyuanDiT reference
+→ pinned native HunyuanDiTPipeline (distilled, 25-step baseline)
+→ reference_front.png
 → user approval
 → pinned Hunyuan3D-2mv shape
 
-I1 SINGLE IMAGE
-→ pinned Hunyuan3D-2mv shape
-
-I2 MULTIVIEW front/right/back/left
-→ pinned Hunyuan3D-2mv shape
+I1 SINGLE IMAGE → pinned Hunyuan3D-2mv shape
+I2 MULTIVIEW    → pinned Hunyuan3D-2mv shape
 
 three GLBs
-→ select representative GLB
-→ Blender 5.2.x / LazyBuilderTarget + target.json
-→ Minecraftize V0 primitive suite
+→ representative selection
+→ Blender LazyBuilderTarget + target.json
+→ Minecraftize V0 primitive proof
 → Minecraftize representative model
 → canonical blocks.json
-→ canonical preview.svg from the same blocks.json
+→ canonical preview.svg → user approval
 → mcschematic 11.4.4 / Sponge V2 / DataVersion 4189
-→ Axiom 5.3.0
-→ AxiomPaper 5.0.1 / Paper 1.21.4
-→ Minecraft Java 1.21.4
+→ Axiom / AxiomPaper / Paper / Minecraft
 → acceptance-report.json
 ```
 
-## What Pre-Runtime Verification proves
+## Source-audit hardening
 
-Repository-owned deterministic/static preparation covers:
+Repository preparation intentionally rejects several false-green conditions:
 
 ```text
-generation model/source pins + dry-run contracts
-session graph / resume / invalidation
-input and upstream artifact digest locking
-artifact schema validation
-Blender target metadata contract
-Minecraftize V0 pure logic
-Blender-native runtime entrypoints compile without launch
-primitive suite definition includes a true-interior proof
-canonical blocks.json validation
-canonical SVG preview from blocks.json
-schematic writer round-trip
-consolidated evidence/lineage report
+manifest claims pinned Hunyuan source but imported checkout differs
+→ FAIL
+
+imported Hunyuan checkout contains local modifications
+→ FAIL
+
+required runtime package / Blender executable absent during preflight
+→ FAIL
+
+installed generation API signatures no longer match wrapper calls
+→ FAIL
+
+text or preview stage attempts RUNNING → PASS without review
+→ FAIL
+
+case input changes without explicit snapshot refresh
+→ INPUT_DRIFT
+
+Blender bounds contain NaN/Infinity/zero/inverted extent
+→ FAIL
+
+Minecraftize/preview/schematic report metadata disagrees with canonical blocks
+→ FAIL
+
+Axiom runtime evidence points to another schematic/environment
+→ FAIL
 ```
 
-Expected static marker:
+## Generation authority
 
-`STATIC_PRE_RUNTIME_DRY_RUN_PASS_RUNTIME_NOT_STARTED`
+```text
+HunyuanDiT model revision
+527cf2ecce7c04021975938f8b0e44e35d2b1ed9
+
+Hunyuan3D source commit
+f8db63096c8282cb27354314d896feba5ba6ff8a
+required actual checkout: same commit + clean
+
+Hunyuan3D-2mv model revision
+08766051fa711c6ef5caf86b97e50304fdfcf0ef
+```
+
+Hunyuan3D extraction-critical settings are explicit in the manifest rather than inherited silently from future upstream defaults.
 
 ## Session graph
 
@@ -67,63 +89,40 @@ preflight
 └─ minecraftize_primitives ────────────────────────────────────────────┘
 
 minecraftize_model
-→ minecraft_preview
+→ minecraft_preview (approval gate)
 → schematic
 → axiom / paper / minecraft
 ```
 
-`minecraftize_primitives` depends on the environment preflight, **not** on the selected Blender target. Changing the selected GLB therefore invalidates Blender and its true downstream dependents without throwing away an already valid primitive proof.
+Minecraftize primitive proof is independent of representative Blender target but still requires the same validated host preflight.
 
-## Input integrity
+## Input integrity and refresh
 
-Session initialization snapshots SHA-256 for T1/I1/I2.
+Session start snapshots SHA-256 for all controlled T1/I1/I2 inputs. Stage start re-hashes inputs against case snapshot or upstream PASS digest.
 
-Every stage start verifies its current inputs against either:
+Intentional changes use `refresh_case_input.py`, which refreshes only the named input authority and invalidates only its true downstream chain. This avoids both silent drift and an impossible invalidate/retry loop with a stale snapshot.
 
-```text
-original case snapshot digest
-or
-upstream PASS artifact digest
-```
+## Human gates
 
-Changed input is not silently accepted. The stage owner must be explicitly invalidated and resumed.
-
-Changing the representative shape after Blender/downstream evidence exists invalidates:
+Future runtime requires actual judgment only where output meaning can change materially:
 
 ```text
-blender
-→ minecraftize_model
-→ minecraft_preview
-→ schematic
-→ axiom
+T1 reference       RUNNING → APPROVAL_REQUIRED → PASS
+representative GLB explicit selection
+Blender target     manual application + metadata
+Minecraft preview  RUNNING → APPROVAL_REQUIRED → PASS
+Axiom/Minecraft    exact runtime evidence
 ```
 
-and preserves independent `minecraftize_primitives` evidence.
+Deterministic mechanics do not need ceremonial approval.
 
-## Artifact contract
+## Preflight contract
 
-`ARTIFACT-CONTRACTS.md` is the detailed owner. A stage cannot become `PASS` merely because output files exist.
+`collect_environment.py` does not launch runtime apps. It captures installed package/executable facts, source checkout identity, API signature compatibility, and declared target environment values.
 
-Every successful boundary must pass structure/version/digest checks appropriate to that artifact.
+If packages, driver, Blender, Hunyuan checkout, or Axiom/Paper environment changes after preflight, invalidate preflight before continuing.
 
-## Generation reproducibility
-
-`generation/ENVIRONMENT.md` owns local setup. Generation manifests record:
-
-```text
-HunyuanDiT model + revision
-Hunyuan3D-2mv model + revision
-Hunyuan3D source repository + commit
-input hashes
-parameters
-output hash
-```
-
-Exact Python/PyTorch/CUDA/driver versions are captured from the real target machine during preflight; they are not guessed from static CI.
-
-## Minecraftize V0 boundary
-
-V0 remains full-block only.
+## Minecraftize V0
 
 ```text
 full_block → SUPPORTED
@@ -131,82 +130,65 @@ stair      → SKIPPED
 slab       → SKIPPED
 ```
 
-The Blender runtime primitive suite is prepared with two full-block cases:
+Prepared runtime primitives:
 
 ```text
 3×2×2 boundary case
 5×5×5 true-interior case
 ```
 
-The second case must contain cells that are not merely inside the near-surface band, so runtime proof will actually exercise BVH parity/interior occupancy.
+The latter must prove non-near-surface occupancy. Actual Blender execution remains future runtime evidence.
 
-That primitive suite is **prepared but not runtime-proven** until Blender is explicitly launched in the future acceptance session.
-
-## Preview contract
-
-Preview is not a second converter.
+## Preview and schematic source of truth
 
 ```text
 canonical blocks.json
-├─ build_preview.py → preview.svg (top/front/right projections)
-└─ export_blocks.py → build.schem
+├→ build_preview.py → preview.svg
+└→ export_blocks.py → build.schem
 ```
 
-The preview manifest binds the exact source/output SHA-256.
+Preview manifest must agree with real blocks metadata. Schematic writer reloads/verifies every source block state, while the manifest keeps only bounded diagnostic samples plus total verified count.
 
-## Human/application gates during future runtime
+## Runtime evidence lineage
 
-Only these require real judgment/action:
+Future `runtime.json` is created with `write_runtime_evidence.py` and binds the exact accepted schematic + preflight environment hashes. The session controller refuses Axiom PASS when either hash differs from the session’s authoritative PASS artifact.
 
-1. approve the generated T1 reference;
-2. select the representative GLB;
-3. prepare/judge `LazyBuilderTarget` in Blender;
-4. inspect canonical block preview;
-5. execute/inspect Axiom → Paper → Minecraft placement.
+## Static proof
 
-Successful deterministic script stages do not need ceremonial chat confirmation.
-
-## Resume rule
+Pre-Runtime Verify covers:
 
 ```text
-failure or intentional source change
-→ identify first wrong owner
-→ invalidate only true dependents
-→ preserve independent valid evidence
-→ resume from first invalidated stage
+owner/document synchronization
+source/model/wrapper contracts
+session/invalidation/approval tests
+artifact contract tests
+static controller dry-run
+Minecraftize pure/block-model tests
+runtime entrypoint compilation without launching apps
+canonical preview generation
+schematic export + exhaustive reload BlockState verification
 ```
 
-## What remains outside repository preparation
+Expected marker:
 
-The system-side pre-runtime preparation is complete when static verification is green.
+`STATIC_PRE_RUNTIME_DRY_RUN_PASS_RUNTIME_NOT_STARTED`
 
-A future runtime session still needs user-selected test content:
+## Runtime-only unknowns
+
+Static/source correctness cannot prove:
 
 ```text
-T1 prompt
-I1 front image
-I2 front/right/back/left consistent images
-intentional target_width_blocks
+CUDA/driver/VRAM startup behavior
+actual Hunyuan image/mesh quality
+Blender BVH execution on target geometry
+Minecraftize visual fidelity
+Axiom client import behavior
+AxiomPaper/Paper placement behavior
+Minecraft final visual result/performance
 ```
 
-Those are acceptance inputs, not missing architecture.
+These remain `LOCAL RUNTIME PROOF REQUIRED` until the user explicitly starts Runtime Acceptance.
 
-## Runtime Acceptance boundary
-
-Do not start runtime until the user explicitly requests it.
-
-Runtime Acceptance means actual execution of:
-
-```text
-HunyuanDiT / Hunyuan3D GPU
-Blender target + primitive/model conversion
-Axiom import / Clipboard
-AxiomPaper / Paper placement
-Minecraft visual verification
-```
-
-Static/CI PASS never upgrades those claims.
-
-## Stop Boundary
+## Stop boundary
 
 Do not automatically add stairs/slabs, Fast/Turbo routing, another 3D provider, Axiom automation/MCP, packet tuning, NBT/entity support, or promote `develop` to `Local`/`main`.

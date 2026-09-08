@@ -28,6 +28,7 @@ from session_contract import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SHAPE_STAGES = {"shape_text", "shape_single", "shape_multiview"}
+APPROVAL_GATED_STAGES = {"text_reference", "minecraft_preview"}
 
 ALLOWED_TRANSITIONS = {
     "READY": {"RUNNING", "BLOCKED", "SKIPPED"},
@@ -59,6 +60,29 @@ def _stage(session: dict[str, Any], stage_id: str) -> dict[str, Any]:
     return stages[stage_id]
 
 
+def _stage_output_digest(session: dict[str, Any], stage_id: str, output_index: int) -> str:
+    stage = _stage(session, stage_id)
+    path = str(Path(stage["output_paths"][output_index]).resolve())
+    digest = stage.get("output_digests", {}).get(path)
+    if not isinstance(digest, str):
+        raise ContractError(f"missing authoritative output digest for {stage_id}: {path}")
+    return digest
+
+
+def _validate_runtime_lineage(session: dict[str, Any], runtime_path: Path) -> None:
+    runtime = read_json(runtime_path)
+    schematic = runtime.get("schematic")
+    environment = runtime.get("environment")
+    if not isinstance(schematic, dict) or not isinstance(environment, dict):
+        raise ContractError("runtime.json must bind schematic and environment evidence")
+    expected_schematic = _stage_output_digest(session, "schematic", 0)
+    expected_environment = _stage_output_digest(session, "preflight", 0)
+    if schematic.get("sha256") != expected_schematic:
+        raise ContractError("runtime.json schematic digest does not match the exact session schematic PASS artifact")
+    if environment.get("sha256") != expected_environment:
+        raise ContractError("runtime.json environment digest does not match the exact session preflight PASS artifact")
+
+
 def _transition(
     session: dict[str, Any],
     stage_id: str,
@@ -71,8 +95,19 @@ def _transition(
     current = stage["status"]
     if status not in ALLOWED_TRANSITIONS.get(current, set()):
         raise ContractError(f"invalid stage transition {stage_id}: {current} -> {status}")
+    if status == "PASS" and current == "RUNNING" and stage_id in APPROVAL_GATED_STAGES:
+        raise ContractError(
+            f"{stage_id} requires human review: transition RUNNING -> APPROVAL_REQUIRED -> PASS"
+        )
     if status == "RUNNING":
-        record_inputs(session, stage)
+        try:
+            record_inputs(session, stage)
+        except ContractError as exc:
+            if "input drift detected" in str(exc):
+                raise ContractError(
+                    f"{exc}; if the changed case input is intentional, use refresh_case_input.py before resuming"
+                ) from exc
+            raise
         stage["started_at"] = utc_now()
         stage["finished_at"] = None
         stage["failure_class"] = None
@@ -84,6 +119,8 @@ def _transition(
             validate_stage_artifacts(stage_id, stage["output_paths"])
         except ArtifactValidationError as exc:
             raise ContractError(f"artifact contract failed for {stage_id}: {exc}") from exc
+        if stage_id == "axiom":
+            _validate_runtime_lineage(session, Path(stage["output_paths"][0]))
     if failure_class:
         stage["failure_class"] = failure_class
     if notes:
@@ -162,11 +199,11 @@ def build_action(session: dict[str, Any], stage_id: str) -> dict[str, Any]:
             ],
             "required_record_keys": sorted(REQUIRED_PREFLIGHT_DECLARED - set(AUTO_DECLARED)),
             "auto_recorded_keys": sorted(AUTO_DECLARED),
-            "instruction": "Capture automatic environment metadata and append every required --record key=value fact. This does not launch Hunyuan, Blender, Axiom, or Minecraft runtime.",
+            "instruction": "Capture automatic environment metadata and append every required --record key=value fact. The collector verifies the installed Hunyuan checkout identity; this does not launch Hunyuan, Blender, Axiom, or Minecraft runtime.",
         }
     if stage_id == "text_reference":
         prompt = resolve_case_input(session, case["inputs"]["T1"]["prompt_path"])
-        return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/generation/generate_text_reference.py"), "--prompt-file", str(prompt), "--output-dir", str(output_dir)], "completion": "mark APPROVAL_REQUIRED after generation; approve only after visual review"}
+        return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/generation/generate_text_reference.py"), "--prompt-file", str(prompt), "--output-dir", str(output_dir)], "completion": "mark APPROVAL_REQUIRED after generation; mark PASS only after visual review"}
     if stage_id == "shape_text":
         return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/generation/generate_shape.py"), "--front", str(run_dir / "10-reference/reference_front.png"), "--output-dir", str(output_dir)]}
     if stage_id == "shape_single":
@@ -198,12 +235,24 @@ def build_action(session: dict[str, Any], stage_id: str) -> dict[str, Any]:
     if stage_id == "minecraftize_model":
         return {**common, "kind": "command", "argv": ["blender", str(run_dir / "30-blender/target.blend"), "--background", "--python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/minecraftize_v0.py"), "--", "--object-name", "LazyBuilderTarget", "--target-width-blocks", str(case["target"]["target_width_blocks"]), "--output-dir", str(output_dir)]}
     if stage_id == "minecraft_preview":
-        return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/build_preview.py"), "--blocks", str(run_dir / "41-minecraftize-model/blocks.json"), "--output-dir", str(output_dir)]}
+        return {
+            **common,
+            "kind": "command",
+            "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/build_preview.py"), "--blocks", str(run_dir / "41-minecraftize-model/blocks.json"), "--output-dir", str(output_dir)],
+            "completion": "mark APPROVAL_REQUIRED after preview generation; mark PASS only after visual review of the exact canonical block preview",
+        }
     if stage_id == "schematic":
         blocks_path = run_dir / "41-minecraftize-model/blocks.json"
         return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/schematic/export_blocks.py"), "--blocks", str(blocks_path), "--output-dir", str(output_dir)]}
     if stage_id == "axiom":
-        return {**common, "kind": "manual_application", "schematic": str(run_dir / "50-schematic/build.schem"), "instruction": "Use VALIDATION.md: import exact build.schem in Axiom, verify Clipboard, place through AxiomPaper/Paper, verify Minecraft world/visual state, and record runtime.json."}
+        return {
+            **common,
+            "kind": "manual_application",
+            "schematic": str(run_dir / "50-schematic/build.schem"),
+            "environment": str(run_dir / "00-preflight/environment.json"),
+            "instruction": "Use VALIDATION.md: import exact build.schem in Axiom, verify Clipboard, place through AxiomPaper/Paper, verify Minecraft world/visual state, then record runtime.json with write_runtime_evidence.py.",
+            "evidence_helper": str(REPO_ROOT / "kits/lazy-builder/validator/write_runtime_evidence.py"),
+        }
     raise ContractError(f"no action definition for stage: {stage_id}")
 
 

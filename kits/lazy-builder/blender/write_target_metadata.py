@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 
 
@@ -13,6 +14,16 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _validate_bounds(minimum: list[float], maximum: list[float]) -> None:
+    if len(minimum) != 3 or len(maximum) != 3:
+        raise SystemExit("bounds must contain exactly three axes")
+    if not all(math.isfinite(value) for value in (*minimum, *maximum)):
+        raise SystemExit("bounds must contain only finite numbers")
+    extents = [maximum[i] - minimum[i] for i in range(3)]
+    if any(extent <= 0 for extent in extents):
+        raise SystemExit(f"bounds must have positive extent on every axis, got {extents}")
 
 
 def main() -> int:
@@ -29,6 +40,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.target_width_blocks <= 0:
         raise SystemExit("target width must be positive")
+    _validate_bounds(args.bounds_min, args.bounds_max)
     source = Path(args.source_glb).expanduser().resolve()
     target = Path(args.target_blend).expanduser().resolve()
     for path in (source, target):
@@ -61,7 +73,7 @@ def main() -> int:
     }
     output = Path(args.output).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output.write_text(json.dumps(payload, indent=2, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
     print(output)
     return 0
 

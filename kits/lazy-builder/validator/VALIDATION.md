@@ -3,235 +3,175 @@
 ## Proof layers
 
 ```text
-0 Pre-Runtime Verification (static/contracts only)
-1 generation/runtime environment capture
-2 conversion primitive correctness
-3 representative Minecraftize + canonical preview
+0 Pre-Runtime Verification (static/source/contracts)
+1 validated runtime environment capture
+2 generation + Blender/Minecraftize primitive runtime
+3 representative Minecraftize + approved canonical preview
 4 schematic writer / schema compatibility
 5 Axiom client import + Clipboard
-6 AxiomPaper handshake / placement permission
+6 AxiomPaper handshake / placement
 7 Minecraft world placement + visual fidelity
 ```
 
 A lower layer never proves a higher layer.
 
-## Current audited runtime target
+## Current runtime target
 
 ```text
-Minecraft Java Edition 1.21.4
-
-CLIENT
-Fabric
-Axiom 5.3.0
-Axiom API family 9
-
-SERVER
+Minecraft Java 1.21.4
+Fabric client
+Axiom 5.3.0 / API family 9
 Paper 1.21.4
-AxiomPaper 5.0.1+1.21.4
-Axiom API family 9
-
-SCHEMATIC
-Sponge Version 2
-DataVersion 4189
+AxiomPaper 5.0.1+1.21.4 / API family 9
+Sponge Schematic V2 / DataVersion 4189
 ```
 
-Do not use supplied AxiomPaper 4.0.4 for this baseline; it is API family 8.
+AxiomPaper 4.0.4 is outside this baseline. AxiomPaper 5.0.4+1.21.4 remains only a conditional upgrade candidate after measured evidence.
 
-AxiomPaper 5.0.4+1.21.4 remains only a conditional upgrade candidate for a measured matching issue or explicit user decision.
+## Preflight capture is fail-closed
 
-## Current evidence boundary
+Before future runtime, run the session-provided `collect_environment.py` command and supply all required declared facts.
+
+The collector does **not** launch inference or Blender. It records:
 
 ```text
-Pre-Runtime repository/contracts      → PASS only when CI is green
-M1 writer / BlockState round-trip      → PASS
-Axiom binary integration audit         → PASS (research/static)
-Hunyuan runtime                        → LOCAL RUNTIME PROOF REQUIRED
-Blender/Minecraftize runtime           → LOCAL RUNTIME PROOF REQUIRED
-Axiom import / Clipboard               → LOCAL RUNTIME PROOF REQUIRED
-Paper handshake / placement            → LOCAL RUNTIME PROOF REQUIRED
-Minecraft placement / visual fidelity  → LOCAL RUNTIME PROOF REQUIRED
+OS / Python
+installed runtime package versions
+Git / Blender / Java executable paths
+actual imported hy3dgen checkout path / commit / dirty state
+installed generation API signature compatibility
+Blender/GPU/VRAM/CUDA facts
+Minecraft/Fabric/Axiom/Paper/AxiomPaper facts + hashes
+integration/plugin state
+pinned model/source identities
 ```
 
-## Preflight capture
+A preflight can become PASS only if required packages/executables exist, generation APIs match wrapper expectations, and the actual imported Hunyuan checkout is the clean pinned source commit.
 
-Before future runtime, use:
-
-```bash
-python kits/lazy-builder/validator/collect_environment.py \
-  --output <run>/00-preflight/environment.json \
-  --record key=value \
-  ...
-```
-
-The session action reports the exact required record keys. They cover:
-
-```text
-Blender version
-GPU / VRAM / CUDA driver/runtime
-Minecraft client version
-Fabric Loader / Fabric API
-Axiom client version + SHA-256
-Paper version/build
-AxiomPaper version + SHA-256
-permission mode
-ViaVersion / WorldGuard / PlotSquared / CoreProtect state
-Axiom license/whitelist state as applicable
-```
-
-The collector itself does not launch Hunyuan, Blender, Axiom, or Minecraft.
-
-Pinned generation identities (`hunyuan3d_source_commit`, `hunyuan3d_model_revision`, `hunyuandit_model_revision`) are auto-recorded from the repository contract; machine-specific facts remain explicit.
-
-A preflight stage becomes PASS only after `artifact_validation.py` confirms required fields are present.
+If package, driver, Blender, Hunyuan source, or Axiom/Paper environment changes after preflight, invalidate and capture preflight again.
 
 ## Generation acceptance
 
-T1/I1/I2 generation must use the exact source/model pins in `../generation/ENVIRONMENT.md`.
+T1 uses the pinned distilled HunyuanDiT with native `HunyuanDiTPipeline` and 25-step baseline. Text reference requires:
 
-Every generation output must preserve manifest + SHA-256 lineage.
+```text
+RUNNING → APPROVAL_REQUIRED → PASS
+```
 
-T1 additionally requires explicit user approval of `reference_front.png` before shape generation.
+T1/I1/I2 shape generation requires the exact Hunyuan3D source/model pins and explicit extraction settings in `generation/ENVIRONMENT.md`.
+
+The shape runner rejects source commit mismatch, dirty source checkout, missing/empty mesh, and records actual source/input/output lineage.
+
+Intentional case-input changes must use `refresh_case_input.py`; unexpected changes remain `INPUT_DRIFT`.
 
 ## Blender acceptance
 
-Selected representative GLB:
+Selected GLB:
 
 ```text
-→ manual Blender preparation
+→ Blender preparation
 → LazyBuilderTarget
 → target.blend
 → target.json via write_target_metadata.py
 ```
 
-`target.json` must bind source/target hashes, Blender version, target width/bounds, orientation, and cleanup notes.
+`target.json` must bind source/target hashes, Blender version, target width, finite positive world bounds, canonical orientation, and cleanup notes.
 
 ## Minecraftize acceptance
 
-Primitive runtime uses the actual Blender V0 converter and includes:
+Primitive runtime executes the real Blender V0 converter:
 
 ```text
-3×2×2 boundary case
-5×5×5 true-interior case
+3×2×2 boundary
+5×5×5 true interior
 ```
 
-The interior case must not be satisfiable entirely by near-surface occupancy.
-
-V0 feature status remains:
+Representative V0 must agree across report and canonical `blocks.json`:
 
 ```text
-full_block → SUPPORTED
-stair      → SKIPPED
-slab       → SKIPPED
+occupied cell count
+grid/bounds size
+full block support
+stair/slab SKIPPED
 ```
 
-Representative conversion then emits canonical `blocks.json` + report.
-
-## Canonical preview
-
-Before schematic export, generate:
+## Canonical preview approval
 
 ```text
-41-minecraftize-model/blocks.json
+blocks.json
 → build_preview.py
-→ 45-preview/preview.svg + manifest.json
+→ preview.svg + manifest.json
 ```
 
-This preview consumes the exact block model used by export. It is not a second conversion path.
+Preview metadata is validated against the exact source blocks. The preview stage must transition:
 
-Human inspection may compare the preview against the prepared mesh/reference, but static preview generation alone is not visual-fidelity PASS.
+```text
+RUNNING → APPROVAL_REQUIRED → PASS
+```
+
+Schematic export remains locked until that preview is approved.
 
 ## Schematic writer acceptance
 
 ```text
 canonical blocks.json
 → mcschematic==11.4.4
-→ Sponge V2 / DataVersion 4189 build.schem
+→ build.schem
 → reload same file
-→ exact BlockState round-trip
+→ verify every source coordinate + BlockState
 ```
 
-If `blocks.json` is correct and `.schem` is wrong, fix the exporter. If `blocks.json` is wrong, fix Minecraftize.
+The manifest stores total verified count plus at most 64 deterministic diagnostic samples, avoiding an unnecessary O(N) duplicate of a production block model while retaining exhaustive verification.
 
-## Axiom session preflight
+## Exact Axiom/Paper/Minecraft evidence
 
-For the first controlled multiplayer proof use either OP or the expected Axiom permission setup. After changing permission/OP state, reconnect as required by the plugin behavior.
+Use the exact session outputs. After actual observations, create runtime evidence with:
 
-If Axiom is not active:
+```bash
+python kits/lazy-builder/validator/write_runtime_evidence.py \
+  --schematic <run>/50-schematic/build.schem \
+  --environment <run>/00-preflight/environment.json \
+  --output <run>/60-axiom/runtime.json \
+  --import PASS \
+  --clipboard PASS \
+  --placement PASS \
+  --minecraft-world PASS \
+  --visual-state PASS
+```
+
+Use `FAIL` for any failed observation. The helper sets overall PASS only when all checks pass.
+
+`runtime.json` records SHA-256 for the exact schematic and environment. When the Axiom stage is marked PASS, the session controller compares both hashes with the already-recorded session PASS digests. Evidence from another build/environment is rejected.
+
+## Axiom diagnosis
+
+For the first controlled multiplayer proof use the expected OP/permission setup. Reconnect after permission changes when required.
+
+If Axiom is inactive:
 
 ```text
 /whynoaxiom
 /axiomhandshake
 ```
 
-The import menu requires the server-provided `CAN_IMPORT_BLOCKS` capability / `axiom.can_import_blocks` permission.
+Import requires the server-provided import capability / `axiom.can_import_blocks` permission.
 
-Do not change exporter/model versions before identifying the first failing owner.
-
-## Exact Axiom/Paper/Minecraft runtime checks
-
-For the exact generated `build.schem`:
-
-1. import in Axiom 5.3.0 with no unknown-format/version error;
-2. verify Clipboard content;
-3. create Placement without first-proof rotation/scale/flip;
-4. verify server accepts placement through AxiomPaper/Paper;
-5. verify expected world structure and block states;
-6. compare Minecraft result to canonical preview/prepared target/reference;
-7. write `runtime.json` only from actual observations.
-
-`runtime.json` can validate as PASS only when these checks are all PASS:
+Failure routing:
 
 ```text
-import
-clipboard
-placement
-minecraft_world
-visual_state
+Import menu disabled → permission/session/handshake
+unknown schematic → schematic compatibility
+Clipboard wrong → client parsing/content
+Placement blocked → Axiom permission/restriction
+server placement rejected → AxiomPaper/world/region/transport
+blocks.json wrong → Minecraftize
+preview wrong with correct blocks.json → preview owner
+.schem wrong with correct blocks.json → exporter
+slow placement → measure first, then consider plugin/tuning changes
 ```
 
-## Failure routing
+## Evidence boundary
 
-```text
-Import Schematic disabled
-→ permission/session: axiom.can_import_blocks / handshake
+Use `LOCAL RUNTIME PROOF REQUIRED` until exact Hunyuan/Blender/Axiom/Paper/Minecraft execution occurs.
 
-unknown format / unsupported Sponge Version
-→ schematic compatibility
-
-file imports but Clipboard wrong
-→ client parsing/content compatibility
-
-Clipboard correct but Placement cannot start
-→ BUILD_SECTION permission / client restrictions
-
-Placement starts but server rejects/does nothing
-→ AxiomPaper handshake/world/region/transport
-
-block/state/orientation wrong with correct blocks.json
-→ exporter / BlockState owner
-
-blocks.json already wrong
-→ Minecraftize owner
-
-preview wrong but blocks.json correct
-→ preview owner
-
-slow updates with correct permissions
-→ measure first, then evaluate AxiomPaper 5.0.4+1.21.4
-```
-
-## Server policy/config boundary
-
-Do not pre-tune packet/rate limits. Check existing world/region/disallowed-block policy only after an observed failure.
-
-Do not enable broad payload settings merely to make a first proof pass.
-
-## Later scope
-
-NBT/entities, broad block families, production-scale benchmarking, Fast/Turbo, and Axiom automation remain outside V0 until evidence requires them.
-
-## Evidence language
-
-Use `LOCAL RUNTIME PROOF REQUIRED` whenever the repository is prepared but the exact application execution has not happened.
-
-Do not claim runtime PASS from CI, binary inspection, a hand-altered screenshot, or a manually substituted artifact.
+Do not claim runtime PASS from CI, source inspection, static binary research, a manually altered result, or a substituted artifact.

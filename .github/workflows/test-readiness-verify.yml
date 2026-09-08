@@ -63,12 +63,15 @@ jobs:
         run: python -m unittest -v test_block_model.py test_minecraftize_v0.py
       - name: Compile runtime entrypoints without launching runtime apps
         run: |
+          python -m py_compile kits/lazy-builder/generation/runtime_contract.py
           python -m py_compile kits/lazy-builder/generation/generate_text_reference.py
           python -m py_compile kits/lazy-builder/generation/generate_shape.py
           python -m py_compile kits/lazy-builder/blender/write_target_metadata.py
           python -m py_compile kits/lazy-builder/minecraftize/minecraftize_v0.py
           python -m py_compile kits/lazy-builder/minecraftize/run_primitive_suite.py
           python -m py_compile kits/lazy-builder/validator/collect_environment.py
+          python -m py_compile kits/lazy-builder/validator/refresh_case_input.py
+          python -m py_compile kits/lazy-builder/validator/write_runtime_evidence.py
       - name: Build canonical serialization fixture and preview
         run: |
           python kits/lazy-builder/minecraftize/build_primitive_fixture.py --output-dir /tmp/lazybuilder-primitives
@@ -78,16 +81,18 @@ jobs:
             --blocks /tmp/lazybuilder-primitives/blocks.json \
             --output-dir /tmp/lazybuilder-preview
           test -s /tmp/lazybuilder-preview/preview.svg
-          test -s /tmp/lazybuilder-preview/manifest.json
           grep -F 'PREVIEW_READY_FROM_CANONICAL_BLOCKS' /tmp/lazybuilder-preview/manifest.json
       - name: Install pinned schematic writer
         run: python -m pip install -r requirements.txt
-      - name: Export fixture through general blocks.json writer
+      - name: Run schematic writer unit test and export fixture
         run: |
+          cd kits/lazy-builder/schematic
+          python -m unittest -v test_export_blocks.py
+          cd ../../..
           python kits/lazy-builder/schematic/export_blocks.py \
             --blocks /tmp/lazybuilder-primitives/blocks.json \
             --output-dir /tmp/lazybuilder-schematic \
             --name readiness
           test -s /tmp/lazybuilder-schematic/readiness.schem
-          test -s /tmp/lazybuilder-schematic/manifest.json
           grep -F 'WRITER_ROUND_TRIP_PASS_RUNTIME_AXIOM_REQUIRED' /tmp/lazybuilder-schematic/manifest.json
+          grep -F '"round_trip_verified_block_count"' /tmp/lazybuilder-schematic/manifest.json

@@ -16,16 +16,55 @@ from collect_environment import build_payload as build_environment_payload
 from artifact_validation import (
     ArtifactValidationError,
     REQUIRED_PREFLIGHT_DECLARED,
+    REQUIRED_RUNTIME_EXECUTABLES,
+    REQUIRED_RUNTIME_PACKAGES,
+    validate_axiom,
     validate_blender,
     validate_preflight,
     validate_preview,
 )
 from block_model import Block, build_payload, write_blocks_json
 from build_preview import build_preview
+from write_runtime_evidence import build_payload as build_runtime_payload
 
 
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def declared_runtime_facts() -> dict[str, str]:
+    result = {
+        key: ("a" * 64 if key in {"axiom_client_sha256", "axiompaper_sha256"} else "8" if key == "gpu_vram_gb" else "known")
+        for key in REQUIRED_PREFLIGHT_DECLARED
+    }
+    result.update({
+        "hunyuan3d_source_commit": "f8db63096c8282cb27354314d896feba5ba6ff8a",
+        "hunyuan3d_model_revision": "08766051fa711c6ef5caf86b97e50304fdfcf0ef",
+        "hunyuandit_model_revision": "527cf2ecce7c04021975938f8b0e44e35d2b1ed9",
+    })
+    return result
+
+
+def valid_preflight_payload() -> dict:
+    return {
+        "schema_version": 1,
+        "stage": "preflight",
+        "status": "PREFLIGHT_CAPTURED_RUNTIME_NOT_STARTED",
+        "system": {},
+        "python": {},
+        "packages": {name: "1.0" for name in REQUIRED_RUNTIME_PACKAGES},
+        "executables": {name: f"/bin/{name}" for name in REQUIRED_RUNTIME_EXECUTABLES},
+        "hunyuan_source_checkout": {
+            "path": "/src/Hunyuan3D-2",
+            "commit": "f8db63096c8282cb27354314d896feba5ba6ff8a",
+            "dirty": False,
+            "status_porcelain": "",
+            "error": None,
+        },
+        "runtime_api_contract": {"status": "PASS", "missing": {}, "error": None},
+        "declared": declared_runtime_facts(),
+        "runtime_launched": False,
+    }
 
 
 class ArtifactValidationTests(unittest.TestCase):
@@ -36,34 +75,37 @@ class ArtifactValidationTests(unittest.TestCase):
         self.assertEqual(declared["hunyuan3d_model_revision"], "08766051fa711c6ef5caf86b97e50304fdfcf0ef")
         self.assertEqual(declared["hunyuandit_model_revision"], "527cf2ecce7c04021975938f8b0e44e35d2b1ed9")
         self.assertFalse(payload["runtime_launched"])
+        self.assertIn("hunyuan_source_checkout", payload)
+        self.assertIn("runtime_api_contract", payload)
 
-    def test_preflight_requires_all_declared_runtime_facts(self) -> None:
+    def test_preflight_requires_actual_packages_executables_and_clean_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "environment.json"
-            declared = {key: ("a" * 64 if key in {"axiom_client_sha256", "axiompaper_sha256"} else "8" if key == "gpu_vram_gb" else "known") for key in REQUIRED_PREFLIGHT_DECLARED}
-            declared.update({
-                "hunyuan3d_source_commit": "f8db63096c8282cb27354314d896feba5ba6ff8a",
-                "hunyuan3d_model_revision": "08766051fa711c6ef5caf86b97e50304fdfcf0ef",
-                "hunyuandit_model_revision": "527cf2ecce7c04021975938f8b0e44e35d2b1ed9",
-            })
-            payload = {
-                "schema_version": 1,
-                "stage": "preflight",
-                "status": "PREFLIGHT_CAPTURED_RUNTIME_NOT_STARTED",
-                "system": {},
-                "python": {},
-                "packages": {},
-                "executables": {},
-                "declared": declared,
-            }
+            payload = valid_preflight_payload()
             path.write_text(json.dumps(payload), encoding="utf-8")
             validate_preflight(path)
-            del payload["declared"]["gpu_name"]
+
+            payload["packages"]["torch"] = None
             path.write_text(json.dumps(payload), encoding="utf-8")
-            with self.assertRaises(ArtifactValidationError):
+            with self.assertRaisesRegex(ArtifactValidationError, "packages missing"):
+                validate_preflight(path)
+            payload = valid_preflight_payload()
+            payload["executables"]["blender"] = None
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ArtifactValidationError, "executables missing"):
+                validate_preflight(path)
+            payload = valid_preflight_payload()
+            payload["hunyuan_source_checkout"]["dirty"] = True
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ArtifactValidationError, "must be clean"):
+                validate_preflight(path)
+            payload = valid_preflight_payload()
+            payload["runtime_api_contract"]["status"] = "FAIL"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ArtifactValidationError, "API contract is incompatible"):
                 validate_preflight(path)
 
-    def test_blender_target_digest_is_enforced(self) -> None:
+    def test_blender_target_digest_and_finite_positive_bounds_are_enforced(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "model.glb"
@@ -84,8 +126,9 @@ class ArtifactValidationTests(unittest.TestCase):
             }
             meta.write_text(json.dumps(payload), encoding="utf-8")
             validate_blender(target, meta)
-            target.write_bytes(b"changed")
-            with self.assertRaises(ArtifactValidationError):
+            payload["target"]["bounds_world"]["max"][0] = 0
+            meta.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ArtifactValidationError, "positive extent"):
                 validate_blender(target, meta)
 
     def test_preview_is_derived_from_exact_canonical_blocks(self) -> None:
@@ -101,6 +144,27 @@ class ArtifactValidationTests(unittest.TestCase):
             preview, manifest = build_preview(blocks_path, root / "preview")
             validate_preview(preview, manifest)
             self.assertIn("TOP X/Z", preview.read_text(encoding="utf-8"))
+            data = json.loads(manifest.read_text())
+            data["block_count"] = 999
+            manifest.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ArtifactValidationError, "metadata does not match"):
+                validate_preview(preview, manifest)
+
+    def test_runtime_evidence_binds_exact_schematic_and_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            schem = root / "build.schem"
+            environment = root / "environment.json"
+            runtime = root / "runtime.json"
+            schem.write_bytes(b"schem")
+            environment.write_bytes(b"env")
+            checks = {name: "PASS" for name in ("import", "clipboard", "placement", "minecraft_world", "visual_state")}
+            payload = build_runtime_payload(schematic=schem, environment=environment, checks=checks, notes=[])
+            runtime.write_text(json.dumps(payload))
+            validate_axiom(runtime)
+            schem.write_bytes(b"changed")
+            with self.assertRaisesRegex(ArtifactValidationError, "digest mismatch"):
+                validate_axiom(runtime)
 
 
 if __name__ == "__main__":

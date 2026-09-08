@@ -13,7 +13,9 @@ from runtime_contract import (
     HUNYUAN3D_SOURCE_REPO,
     HUNYUAN3D_SUBFOLDER,
     SHAPE_DEFAULTS,
+    SHAPE_RUNTIME,
     VIEW_NAMES,
+    require_pinned_hunyuan_source,
     sha256_file,
     validate_view_paths,
     write_json,
@@ -50,6 +52,12 @@ def build_plan(args: argparse.Namespace, *, require_exists: bool) -> dict:
     views = validate_view_paths(
         {view: getattr(args, view) for view in VIEW_NAMES}, require_exists=require_exists
     )
+    if args.steps <= 0:
+        raise ValueError("steps must be positive")
+    if args.guidance_scale < 0:
+        raise ValueError("guidance scale must be non-negative")
+    if args.octree_resolution <= 0 or args.num_chunks <= 0:
+        raise ValueError("octree resolution and num_chunks must be positive")
     output_dir = Path(args.output_dir).expanduser()
     return {
         "schema_version": 1,
@@ -72,6 +80,7 @@ def build_plan(args: argparse.Namespace, *, require_exists: bool) -> dict:
             "remove_background": not args.keep_background,
             "texture": False,
         },
+        "runtime": dict(SHAPE_RUNTIME),
         "outputs": {
             "glb": str(output_dir / "model.glb"),
             "manifest": str(output_dir / "manifest.json"),
@@ -86,11 +95,14 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(plan, indent=2, sort_keys=True))
         return 0
 
+    import hy3dgen
     import torch
     from huggingface_hub import snapshot_download
     from PIL import Image
     from hy3dgen.rembg import BackgroundRemover
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+
+    source_checkout = require_pinned_hunyuan_source(Path(hy3dgen.__file__))
 
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -113,29 +125,38 @@ def run(args: argparse.Namespace) -> int:
     pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
         pinned_snapshot,
         subfolder=HUNYUAN3D_SUBFOLDER,
-        use_safetensors=True,
-        variant="fp16",
+        use_safetensors=SHAPE_RUNTIME["use_safetensors"],
+        variant=SHAPE_RUNTIME["variant"],
         device=args.device,
     )
 
-    generator_device = "cuda" if str(args.device).startswith("cuda") else "cpu"
+    generator_device = str(args.device) if str(args.device).startswith("cuda") else "cpu"
     generator = torch.Generator(device=generator_device).manual_seed(args.seed)
-    mesh = pipeline(
+    results = pipeline(
         image=prepared_images,
         num_inference_steps=args.steps,
         guidance_scale=args.guidance_scale,
         octree_resolution=args.octree_resolution,
         num_chunks=args.num_chunks,
         generator=generator,
-        output_type="trimesh",
-    )[0]
+        box_v=SHAPE_RUNTIME["box_v"],
+        mc_level=SHAPE_RUNTIME["mc_level"],
+        mc_algo=SHAPE_RUNTIME["mc_algo"],
+        output_type=SHAPE_RUNTIME["output_type"],
+    )
+    if not results or results[0] is None:
+        raise RuntimeError("Hunyuan3D returned no mesh")
+    mesh = results[0]
+    if len(mesh.vertices) == 0 or len(mesh.faces) == 0:
+        raise RuntimeError("Hunyuan3D returned an empty mesh")
     mesh.export(glb_path)
 
     manifest = dict(plan)
     manifest["status"] = "GENERATED_GLB_RUNTIME_REVIEW_REQUIRED"
+    manifest["resolved_source_checkout"] = source_checkout
     manifest["resolved_model_snapshot"] = str(Path(pinned_snapshot).resolve())
     manifest["inputs"] = {
-        name: {"path": raw_path, "sha256": sha256_file(Path(raw_path))}
+        name: {"path": str(Path(raw_path).expanduser().resolve()), "sha256": sha256_file(Path(raw_path))}
         for name, raw_path in plan["views"].items()
     }
     manifest["mesh"] = {

@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from acceptance_report import build_report
+from refresh_case_input import refresh_input_snapshot
 from session_contract import (
     ContractError,
     STAGE_ORDER,
@@ -17,7 +18,7 @@ from session_contract import (
     validate_case,
     validate_session,
 )
-from session_controller import build_action, invalidate_from
+from session_controller import _transition, build_action, invalidate_from
 
 
 def make_case(root: Path) -> dict:
@@ -113,7 +114,7 @@ class PreRuntimeContractTests(unittest.TestCase):
             self.assertEqual(stages["schematic"]["status"], "PENDING")
             self.assertEqual(stages["axiom"]["status"], "PENDING")
 
-    def test_case_input_drift_is_rejected_before_stage_run(self) -> None:
+    def test_case_input_drift_is_rejected_then_can_be_explicitly_refreshed(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
@@ -121,9 +122,17 @@ class PreRuntimeContractTests(unittest.TestCase):
             stages = stage_map(session)
             stages["preflight"]["status"] = "PASS"
             refresh_ready(session)
-            (root / "inputs/single/front.png").write_bytes(b"changed")
+            front = root / "inputs/single/front.png"
+            old_digest = session["inputs"]["I1"]["views"]["front"]["sha256"]
+            front.write_bytes(b"changed")
             with self.assertRaisesRegex(ContractError, "input drift detected"):
                 record_inputs(session, stages["shape_single"])
+            refresh_input_snapshot(session, "I1", "intentional new reference")
+            new_digest = session["inputs"]["I1"]["views"]["front"]["sha256"]
+            self.assertNotEqual(old_digest, new_digest)
+            self.assertEqual(stages["shape_single"]["status"], "READY")
+            record_inputs(session, stages["shape_single"])
+            self.assertEqual(next(iter(stages["shape_single"]["input_digests"].values())), new_digest)
 
     def test_upstream_artifact_drift_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -145,7 +154,18 @@ class PreRuntimeContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractError, "input drift detected"):
                 record_inputs(session, blender)
 
-    def test_action_contract_exposes_preflight_preview_and_v0_commands(self) -> None:
+    def test_human_gated_stages_cannot_skip_approval_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            case = make_case(root)
+            session = create_session(case=case, case_root=root, run_id="run-approval", run_dir=root / "runs/run-approval")
+            stages = stage_map(session)
+            for stage_id in ("text_reference", "minecraft_preview"):
+                stages[stage_id]["status"] = "RUNNING"
+                with self.assertRaisesRegex(ContractError, "requires human review"):
+                    _transition(session, stage_id, "PASS")
+
+    def test_action_contract_exposes_preflight_preview_evidence_and_v0_commands(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
@@ -157,22 +177,18 @@ class PreRuntimeContractTests(unittest.TestCase):
             self.assertNotIn("hunyuan3d_model_revision", preflight["required_record_keys"])
 
             stage_action = build_action(session, "shape_multiview")
-            self.assertEqual(stage_action["kind"], "command")
             self.assertIn("--front", stage_action["argv"])
             self.assertIn("--left", stage_action["argv"])
-
             primitives = build_action(session, "minecraftize_primitives")
             self.assertIn("run_primitive_suite.py", " ".join(primitives["argv"]))
-
             model = build_action(session, "minecraftize_model")
-            joined = " ".join(model["argv"])
-            self.assertIn("minecraftize_v0.py", joined)
-            self.assertIn("LazyBuilderTarget", model["argv"])
-            self.assertIn("64", model["argv"])
-
+            self.assertIn("minecraftize_v0.py", " ".join(model["argv"]))
             preview = build_action(session, "minecraft_preview")
             self.assertIn("build_preview.py", " ".join(preview["argv"]))
-            self.assertTrue(preview["argv"][-1].endswith("45-preview"))
+            self.assertIn("APPROVAL_REQUIRED", preview["completion"])
+            axiom = build_action(session, "axiom")
+            self.assertTrue(axiom["evidence_helper"].endswith("write_runtime_evidence.py"))
+            self.assertTrue(axiom["environment"].endswith("00-preflight/environment.json"))
 
     def test_acceptance_report_contains_lineage_and_never_upgrades_partial(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

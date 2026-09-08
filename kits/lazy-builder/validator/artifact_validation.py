@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -23,10 +24,16 @@ from runtime_contract import (
     HUNYUAN3D_SUBFOLDER,
     HUNYUANDIT_MODEL,
     HUNYUANDIT_MODEL_REVISION,
+    HUNYUANDIT_PIPELINE,
+    SHAPE_RUNTIME,
 )
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 MINECRAFT_VERSION = "1.21.4"
+REQUIRED_RUNTIME_PACKAGES = {
+    "torch", "diffusers", "transformers", "accelerate", "huggingface_hub", "Pillow", "hy3dgen", "mcschematic"
+}
+REQUIRED_RUNTIME_EXECUTABLES = {"git", "blender"}
 REQUIRED_PREFLIGHT_DECLARED = {
     "blender_version",
     "gpu_name",
@@ -94,11 +101,14 @@ def _require_sha(value: Any, *, where: str) -> str:
     return value
 
 
-def _check_file_hash(path: Path, expected: Any, *, where: str) -> None:
+def _check_file_hash(path: Path, expected: Any, *, where: str, require_exists: bool = True) -> None:
+    if require_exists and (not path.is_file() or path.stat().st_size == 0):
+        raise ArtifactValidationError(f"required artifact missing/empty: {path}")
     expected_sha = _require_sha(expected, where=where)
-    actual = sha256_file(path)
-    if actual != expected_sha:
-        raise ArtifactValidationError(f"artifact digest mismatch for {path}: {actual} != {expected_sha}")
+    if path.is_file():
+        actual = sha256_file(path)
+        if actual != expected_sha:
+            raise ArtifactValidationError(f"artifact digest mismatch for {path}: {actual} != {expected_sha}")
 
 
 def validate_preflight(environment_path: Path) -> None:
@@ -107,9 +117,36 @@ def validate_preflight(environment_path: Path) -> None:
         raise ArtifactValidationError("environment.json must be preflight schema_version 1")
     if payload.get("status") != "PREFLIGHT_CAPTURED_RUNTIME_NOT_STARTED":
         raise ArtifactValidationError("environment.json has invalid preflight status")
-    for key in ("system", "python", "packages", "executables", "declared"):
+    for key in ("system", "python", "packages", "executables", "declared", "hunyuan_source_checkout", "runtime_api_contract"):
         if not isinstance(payload.get(key), dict):
             raise ArtifactValidationError(f"environment.json.{key} must be an object")
+    if payload.get("runtime_launched") is not False:
+        raise ArtifactValidationError("preflight runtime_launched must be false")
+
+    packages = payload["packages"]
+    missing_packages = sorted(name for name in REQUIRED_RUNTIME_PACKAGES if not str(packages.get(name) or "").strip())
+    if missing_packages:
+        raise ArtifactValidationError(f"preflight runtime packages missing: {missing_packages}")
+    executables = payload["executables"]
+    missing_executables = sorted(name for name in REQUIRED_RUNTIME_EXECUTABLES if not str(executables.get(name) or "").strip())
+    if missing_executables:
+        raise ArtifactValidationError(f"preflight runtime executables missing from PATH: {missing_executables}")
+
+    api_contract = payload["runtime_api_contract"]
+    if api_contract.get("status") != "PASS":
+        raise ArtifactValidationError(
+            f"installed generation API contract is incompatible: {api_contract.get('error') or api_contract.get('missing')}"
+        )
+
+    source = payload["hunyuan_source_checkout"]
+    if source.get("error") not in (None, ""):
+        raise ArtifactValidationError(f"cannot verify installed Hunyuan source checkout: {source.get('error')}")
+    if source.get("commit") != HUNYUAN3D_SOURCE_COMMIT:
+        raise ArtifactValidationError("installed Hunyuan source commit does not match pinned source commit")
+    if source.get("dirty") is not False:
+        raise ArtifactValidationError("installed Hunyuan source checkout must be clean")
+    _require_string(source, "path", where="environment.json.hunyuan_source_checkout")
+
     declared = payload["declared"]
     missing = sorted(REQUIRED_PREFLIGHT_DECLARED - set(declared))
     if missing:
@@ -123,8 +160,8 @@ def validate_preflight(environment_path: Path) -> None:
         vram = float(declared.get("gpu_vram_gb"))
     except (TypeError, ValueError) as exc:
         raise ArtifactValidationError("environment.json.declared.gpu_vram_gb must be numeric") from exc
-    if vram <= 0:
-        raise ArtifactValidationError("environment.json.declared.gpu_vram_gb must be positive")
+    if not math.isfinite(vram) or vram <= 0:
+        raise ArtifactValidationError("environment.json.declared.gpu_vram_gb must be positive finite")
     expected_pins = {
         "hunyuan3d_source_commit": HUNYUAN3D_SOURCE_COMMIT,
         "hunyuan3d_model_revision": HUNYUAN3D_MODEL_REVISION,
@@ -141,10 +178,15 @@ def validate_text_reference(reference_path: Path, manifest_path: Path) -> None:
         raise ArtifactValidationError("text reference manifest schema/stage mismatch")
     if payload.get("status") != "GENERATED_REFERENCE_REVIEW_REQUIRED":
         raise ArtifactValidationError("text reference manifest status mismatch")
+    if payload.get("pipeline") != HUNYUANDIT_PIPELINE:
+        raise ArtifactValidationError("text reference pipeline identity mismatch")
     for key in ("model", "model_revision", "resolved_prompt"):
         _require_string(payload, key, where="text_reference manifest")
     if payload.get("model") != HUNYUANDIT_MODEL or payload.get("model_revision") != HUNYUANDIT_MODEL_REVISION:
         raise ArtifactValidationError("text reference manifest model identity does not match pinned contract")
+    params = payload.get("params")
+    if not isinstance(params, dict) or int(params.get("steps", 0)) <= 0:
+        raise ArtifactValidationError("text reference manifest params invalid")
     _check_file_hash(reference_path, payload.get("output_sha256"), where="text_reference.output_sha256")
 
 
@@ -157,25 +199,34 @@ def validate_shape(glb_path: Path, manifest_path: Path) -> None:
     for key in ("model", "model_revision", "subfolder"):
         _require_string(payload, key, where="shape manifest")
     source_code = payload.get("source_code")
-    if not isinstance(source_code, dict):
-        raise ArtifactValidationError("shape manifest.source_code must be an object")
-    _require_string(source_code, "repository", where="shape manifest.source_code")
-    _require_string(source_code, "commit", where="shape manifest.source_code")
+    resolved_source = payload.get("resolved_source_checkout")
+    if not isinstance(source_code, dict) or not isinstance(resolved_source, dict):
+        raise ArtifactValidationError("shape manifest source identity objects are required")
     if (
         payload.get("model") != HUNYUAN3D_MODEL
         or payload.get("model_revision") != HUNYUAN3D_MODEL_REVISION
         or payload.get("subfolder") != HUNYUAN3D_SUBFOLDER
         or source_code.get("repository") != HUNYUAN3D_SOURCE_REPO
         or source_code.get("commit") != HUNYUAN3D_SOURCE_COMMIT
+        or resolved_source.get("commit") != HUNYUAN3D_SOURCE_COMMIT
+        or resolved_source.get("dirty") is not False
     ):
-        raise ArtifactValidationError("shape manifest source/model identity does not match pinned contract")
+        raise ArtifactValidationError("shape manifest source/model identity does not match clean pinned contract")
+    _require_string(resolved_source, "path", where="shape manifest.resolved_source_checkout")
+    runtime = payload.get("runtime")
+    if not isinstance(runtime, dict) or runtime != SHAPE_RUNTIME:
+        raise ArtifactValidationError("shape manifest runtime extraction settings drift")
     inputs = payload.get("inputs")
     if not isinstance(inputs, dict) or not inputs:
         raise ArtifactValidationError("shape manifest.inputs must contain hashed input views")
     for name, item in inputs.items():
-        if not isinstance(item, dict):
-            raise ArtifactValidationError(f"shape manifest.inputs.{name} must be an object")
-        _require_sha(item.get("sha256"), where=f"shape manifest.inputs.{name}.sha256")
+        if name not in {"front", "right", "back", "left"} or not isinstance(item, dict):
+            raise ArtifactValidationError(f"shape manifest.inputs.{name} is invalid")
+        path = Path(_require_string(item, "path", where=f"shape manifest.inputs.{name}")).expanduser()
+        _check_file_hash(path, item.get("sha256"), where=f"shape manifest.inputs.{name}.sha256")
+    mesh = payload.get("mesh")
+    if not isinstance(mesh, dict) or int(mesh.get("vertices", 0)) <= 0 or int(mesh.get("faces", 0)) <= 0:
+        raise ArtifactValidationError("shape manifest mesh counts must be positive")
     _check_file_hash(glb_path, payload.get("output_sha256"), where="shape.output_sha256")
 
 
@@ -194,9 +245,7 @@ def validate_blender(target_blend: Path, target_json: Path) -> None:
         if not isinstance(item, dict):
             raise ArtifactValidationError(f"target.json.{name} must be an object")
     source_path = Path(_require_string(source, "path", where="target.json.source")).expanduser()
-    source_sha = _require_sha(source.get("sha256"), where="target.json.source.sha256")
-    if source_path.is_file() and sha256_file(source_path) != source_sha:
-        raise ArtifactValidationError("target.json source GLB digest does not match current source file")
+    _check_file_hash(source_path, source.get("sha256"), where="target.json.source.sha256")
     if source.get("selected_shape_stage") not in {"shape_text", "shape_single", "shape_multiview"}:
         raise ArtifactValidationError("target.json.source.selected_shape_stage is invalid")
     _require_string(blender, "version", where="target.json.blender")
@@ -208,10 +257,14 @@ def validate_blender(target_blend: Path, target_json: Path) -> None:
     bounds = target.get("bounds_world")
     if not isinstance(bounds, dict) or set(bounds) != {"min", "max"}:
         raise ArtifactValidationError("target.json.target.bounds_world must contain min/max")
+    vectors = []
     for key in ("min", "max"):
         vec = bounds[key]
-        if not isinstance(vec, list) or len(vec) != 3 or not all(isinstance(v, (int, float)) for v in vec):
-            raise ArtifactValidationError(f"target.json.target.bounds_world.{key} must contain three numbers")
+        if not isinstance(vec, list) or len(vec) != 3 or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in vec):
+            raise ArtifactValidationError(f"target.json.target.bounds_world.{key} must contain three finite numbers")
+        vectors.append(vec)
+    if any(vectors[1][axis] <= vectors[0][axis] for axis in range(3)):
+        raise ArtifactValidationError("target.json target bounds must have positive extent on every axis")
     if orientation.get("minecraft_x") != "blender_x" or orientation.get("minecraft_y") != "blender_z" or orientation.get("minecraft_z") != "-blender_y":
         raise ArtifactValidationError("target.json orientation mapping drift")
     if not isinstance(cleanup.get("notes"), list):
@@ -237,6 +290,8 @@ def validate_minecraftize(blocks_path: Path, report_path: Path, *, primitives: b
         interior = cases.get("v0_full_block_box_5x5x5_interior")
         if not isinstance(interior, dict) or interior.get("status") != "PASS":
             raise ArtifactValidationError("primitive suite must prove 5x5x5 interior occupancy case")
+        if blocks["block_count"] != interior.get("expected_blocks") or blocks["bounds"]["size"] != interior.get("expected_bounds"):
+            raise ArtifactValidationError("primitive blocks.json does not match reported 5x5x5 proof")
         for feature in ("stairs", "slabs"):
             item = cases.get(feature)
             if not isinstance(item, dict) or item.get("status") != "SKIPPED":
@@ -247,6 +302,10 @@ def validate_minecraftize(blocks_path: Path, report_path: Path, *, primitives: b
             raise ArtifactValidationError("Minecraftize model report must support full_block")
         if features.get("stair") != "SKIPPED" or features.get("slab") != "SKIPPED":
             raise ArtifactValidationError("Minecraftize V0 stair/slab must remain SKIPPED")
+        if report.get("occupied_cells") != blocks["block_count"]:
+            raise ArtifactValidationError("Minecraftize report occupied_cells does not match canonical block_count")
+        if report.get("grid_minecraft_axes") != blocks["bounds"]["size"]:
+            raise ArtifactValidationError("Minecraftize report grid_minecraft_axes does not match block bounds")
 
 
 def validate_preview(preview_path: Path, manifest_path: Path) -> None:
@@ -256,9 +315,13 @@ def validate_preview(preview_path: Path, manifest_path: Path) -> None:
     if payload.get("status") != "PREVIEW_READY_FROM_CANONICAL_BLOCKS":
         raise ArtifactValidationError("preview manifest status mismatch")
     source_path = Path(_require_string(payload, "source_blocks", where="preview manifest")).expanduser()
-    source_sha = _require_sha(payload.get("source_sha256"), where="preview manifest.source_sha256")
-    if source_path.is_file() and sha256_file(source_path) != source_sha:
-        raise ArtifactValidationError("preview manifest source blocks digest mismatch")
+    _check_file_hash(source_path, payload.get("source_sha256"), where="preview manifest.source_sha256")
+    try:
+        source = read_blocks_json(source_path)
+    except BlockModelError as exc:
+        raise ArtifactValidationError(str(exc)) from exc
+    if payload.get("block_count") != source["block_count"] or payload.get("bounds") != source["bounds"]:
+        raise ArtifactValidationError("preview manifest metadata does not match canonical source blocks")
     _check_file_hash(preview_path, payload.get("output_sha256"), where="preview manifest.output_sha256")
 
 
@@ -268,12 +331,21 @@ def validate_schematic(schem_path: Path, manifest_path: Path) -> None:
         raise ArtifactValidationError("schematic manifest schema/stage mismatch")
     if payload.get("status") != "WRITER_ROUND_TRIP_PASS_RUNTIME_AXIOM_REQUIRED":
         raise ArtifactValidationError("schematic manifest status mismatch")
-    if payload.get("minecraft_version") != MINECRAFT_VERSION or payload.get("sponge_version") != 2 or payload.get("data_version") != 4189:
-        raise ArtifactValidationError("schematic manifest version contract mismatch")
+    if payload.get("writer") != "mcschematic==11.4.4" or payload.get("minecraft_version") != MINECRAFT_VERSION or payload.get("sponge_version") != 2 or payload.get("data_version") != 4189:
+        raise ArtifactValidationError("schematic manifest version/writer contract mismatch")
     source_path = Path(_require_string(payload, "source_blocks", where="schematic manifest")).expanduser()
-    source_sha = _require_sha(payload.get("source_sha256"), where="schematic manifest.source_sha256")
-    if source_path.is_file() and sha256_file(source_path) != source_sha:
-        raise ArtifactValidationError("schematic manifest source blocks digest mismatch")
+    _check_file_hash(source_path, payload.get("source_sha256"), where="schematic manifest.source_sha256")
+    try:
+        source = read_blocks_json(source_path)
+    except BlockModelError as exc:
+        raise ArtifactValidationError(str(exc)) from exc
+    if payload.get("source_block_count") != source["block_count"] or payload.get("source_bounds") != source["bounds"]:
+        raise ArtifactValidationError("schematic manifest source metadata does not match canonical blocks")
+    if payload.get("round_trip_verified_block_count") != source["block_count"]:
+        raise ArtifactValidationError("schematic round-trip verified count does not cover every source block")
+    samples = payload.get("round_trip_samples")
+    if not isinstance(samples, list) or len(samples) > 64:
+        raise ArtifactValidationError("schematic round-trip samples must be a bounded array (max 64)")
     _check_file_hash(schem_path, payload.get("output_sha256"), where="schematic manifest.output_sha256")
 
 
@@ -289,6 +361,15 @@ def validate_axiom(runtime_path: Path) -> None:
     required = {"import", "clipboard", "placement", "minecraft_world", "visual_state"}
     if set(checks) != required or any(checks[key] != "PASS" for key in required):
         raise ArtifactValidationError("runtime.json checks must all be PASS for exact runtime evidence")
+    for name in ("schematic", "environment"):
+        item = payload.get(name)
+        if not isinstance(item, dict):
+            raise ArtifactValidationError(f"runtime.json.{name} must be an object")
+        path = Path(_require_string(item, "path", where=f"runtime.json.{name}")).expanduser()
+        _check_file_hash(path, item.get("sha256"), where=f"runtime.json.{name}.sha256")
+    notes = payload.get("notes", [])
+    if not isinstance(notes, list) or any(not isinstance(note, str) for note in notes):
+        raise ArtifactValidationError("runtime.json.notes must be an array of strings")
 
 
 def validate_stage_artifacts(stage_id: str, output_paths: list[str]) -> None:

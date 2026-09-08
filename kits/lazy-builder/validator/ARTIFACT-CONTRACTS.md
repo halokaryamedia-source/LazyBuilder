@@ -2,115 +2,153 @@
 
 Every stage boundary must be stronger than “file exists and is non-empty”.
 
-`artifact_validation.py` validates the machine-readable contract when a stage is marked `PASS`.
+`artifact_validation.py` validates machine-readable contracts before a stage can become `PASS`.
 
-## Canonical stage artifacts
+## Canonical artifacts
 
 ```text
-00-preflight/
-  environment.json
-
-10-reference/
-  reference_front.png
-  manifest.json
-
-19/20/21-shape-*/
-  model.glb
-  manifest.json
-
-30-blender/
-  target.blend
-  target.json
-
-40-minecraftize-primitives/
-  blocks.json
-  report.json
-
-41-minecraftize-model/
-  blocks.json
-  report.json
-
-45-preview/
-  preview.svg
-  manifest.json
-
-50-schematic/
-  build.schem
-  manifest.json
-
-60-axiom/
-  runtime.json
+00-preflight/environment.json
+10-reference/reference_front.png + manifest.json
+19/20/21-shape-*/model.glb + manifest.json
+30-blender/target.blend + target.json
+40-minecraftize-primitives/blocks.json + report.json
+41-minecraftize-model/blocks.json + report.json
+45-preview/preview.svg + manifest.json
+50-schematic/build.schem + manifest.json
+60-axiom/runtime.json
 ```
 
-## Validation rules
+## Preflight
 
-### Preflight
-
-`environment.json` records automatic system/package discovery plus exact declared runtime facts. Required declared fields may not be silently omitted or guessed.
-
-Pinned generation identities (`hunyuan3d_source_commit`, `hunyuan3d_model_revision`, `hunyuandit_model_revision`) are auto-recorded from the repository contract; machine-specific facts remain explicit.
-
-### Text reference
-
-The manifest records exact HunyuanDiT model ID + revision and the generated image SHA-256. Approval remains a separate human gate.
-
-### Shape generation
-
-Each shape manifest records:
+Preflight is fail-closed. PASS requires more than declared strings:
 
 ```text
-model ID
-model revision
-Hunyuan3D source repository + commit
-named input views + SHA-256
-parameters
-mesh counts
+required runtime packages installed
+Git + Blender executable paths available
+installed generation API signatures compatible
+actual imported hy3dgen checkout == pinned clean commit
+required machine/Axiom/Paper facts populated
+Axiom/AxiomPaper hashes syntactically valid
+pinned source/model identities exact
+```
+
+No inference application is launched during this check.
+
+## Text reference
+
+The manifest binds:
+
+```text
+HunyuanDiTPipeline
+exact HunyuanDiT model + revision
+resolved prompt + deterministic parameters
+reference_front.png SHA-256
+```
+
+Text reference is human-gated. It must transition:
+
+```text
+RUNNING → APPROVAL_REQUIRED → PASS
+```
+
+## Shape generation
+
+Each shape manifest must bind:
+
+```text
+model ID + revision + subfolder
+expected Hunyuan source repo/commit
+actual imported clean source checkout path + commit
+named input paths + SHA-256
+explicit extraction settings
+positive mesh vertex/face counts
 output GLB SHA-256
 ```
 
-### Blender
+Input files are re-hashed when the stage artifact is validated.
 
-`target.json` binds the selected source GLB to the exact `target.blend` and records:
+## Intentional case-input changes
 
-```text
-source path + SHA-256 + selected shape stage
-Blender version
-LazyBuilderTarget object name
-target_width_blocks
-world bounds
-canonical axis mapping
-cleanup notes
-target.blend SHA-256
-```
+Session initialization snapshots T1/I1/I2. Unexpected drift stops execution.
 
-### Minecraftize
-
-`blocks.json` must pass the canonical block-model validator. V0 reports must explicitly keep stair/slab `SKIPPED`.
-
-The primitive report must contain both:
+When a case input intentionally changes, use:
 
 ```text
-3×2×2 boundary case
-5×5×5 true-interior case
+refresh_case_input.py
+→ validate changed source exists
+→ replace only that authoritative case snapshot digest
+→ invalidate its first owner + true downstream dependents
+→ resume
 ```
 
-The 5×5×5 case exists so the primitive suite cannot pass only from near-surface occupancy.
+Simply invalidating a stage does **not** silently redefine the original case snapshot.
 
-### Preview
+## Blender
 
-`preview.svg` is derived from the exact canonical `blocks.json`. Its manifest binds source and output SHA-256. Preview is evidence; it is not a second converter.
+`target.json` binds source/target hashes, selected shape stage, Blender version, `LazyBuilderTarget`, target width, canonical orientation, cleanup notes, and finite positive world bounds.
 
-### Schematic
+NaN/Infinity, zero-size axes, inverted bounds, missing source GLB, or mutated `target.blend` are rejected.
 
-The writer manifest binds the exact source blocks, output `.schem` SHA-256, Sponge V2, DataVersion 4189, and writer round-trip result.
+## Minecraftize
 
-### Axiom/Minecraft runtime
+`blocks.json` passes canonical block-model validation.
 
-`runtime.json` may validate as `PASS` only after exact Axiom import, Clipboard, placement, Minecraft world placement, and visual-state checks all pass.
+Representative V0 report must agree with canonical output:
+
+```text
+occupied_cells == block_count
+grid_minecraft_axes == bounds.size
+full_block == SUPPORTED
+stair/slab == SKIPPED
+```
+
+Primitive report must bind its emitted blocks to the 5×5×5 true-interior proof and keep stair/slab `SKIPPED`.
+
+## Preview
+
+`preview.svg` derives from the exact canonical `blocks.json`. Validation recomputes source hash and requires preview manifest block count/bounds to equal actual source metadata.
+
+Preview is also human-gated:
+
+```text
+RUNNING → APPROVAL_REQUIRED → PASS
+```
+
+Schematic export cannot unlock from an unapproved preview.
+
+## Schematic
+
+The writer reloads and checks **every source block state** after save.
+
+To avoid duplicating production-size block data in the manifest, evidence records:
+
+```text
+round_trip_verified_block_count == source block_count
+bounded deterministic diagnostic samples (max 64)
+source hash / output hash / bounds / writer / version
+```
+
+Verification remains exhaustive even though diagnostic samples are bounded.
+
+## Axiom/Paper/Minecraft
+
+`write_runtime_evidence.py` creates `runtime.json` from actual observations and binds:
+
+```text
+exact build.schem path + SHA-256
+exact environment.json path + SHA-256
+import
+clipboard
+placement
+minecraft_world
+visual_state
+```
+
+PASS requires all five checks PASS. The session controller additionally requires runtime evidence hashes to equal the already-recorded PASS digests for that session’s schematic and preflight environment.
+
+This prevents a different schematic/environment from being presented as acceptance evidence.
 
 ## Digest rule
-
-The session records SHA-256 at every successful boundary.
 
 Before a downstream stage starts:
 
@@ -119,4 +157,4 @@ current input digest
 == authoritative case snapshot or upstream PASS digest
 ```
 
-A mismatch is `INPUT_DRIFT`; the owner must be invalidated explicitly rather than silently consuming changed data.
+A mismatch is `INPUT_DRIFT`, never a silent update.

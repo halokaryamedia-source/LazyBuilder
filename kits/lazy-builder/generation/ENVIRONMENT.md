@@ -2,17 +2,17 @@
 
 This file owns the reproducible **local generation environment contract**. It prepares runtime; it does not prove runtime success.
 
-## Scope
+## Process boundary
 
 Generation uses two separate processes:
 
 ```text
 TEXT reference process
-→ HunyuanDiT
+→ pinned HunyuanDiT
 → exit / release memory
 
 SHAPE process
-→ Hunyuan3D-2mv
+→ pinned Hunyuan3D-2mv
 → exit / release memory
 ```
 
@@ -20,31 +20,75 @@ Do not keep both models resident on the RTX 3070 8 GB development target.
 
 ## Pinned upstream authority
 
-Hunyuan3D source code:
-
 ```text
-repository: Tencent-Hunyuan/Hunyuan3D-2
-commit: f8db63096c8282cb27354314d896feba5ba6ff8a
+Hunyuan3D source repository
+Tencent-Hunyuan/Hunyuan3D-2
+commit f8db63096c8282cb27354314d896feba5ba6ff8a
+
+Hunyuan3D-2mv model
+tencent/Hunyuan3D-2mv
+revision 08766051fa711c6ef5caf86b97e50304fdfcf0ef
+subfolder hunyuan3d-dit-v2-mv
+
+HunyuanDiT text model
+Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
+revision 527cf2ecce7c04021975938f8b0e44e35d2b1ed9
+pipeline HunyuanDiTPipeline
 ```
 
-Hunyuan3D-2mv Standard shape weights:
+`runtime_contract.py` is the machine-readable owner for these pins.
+
+## Source identity must be actual, not declarative
+
+It is not enough for a manifest to *say* that the pinned Hunyuan3D commit was used.
+
+Before shape generation, LazyBuilder resolves the imported `hy3dgen` package back to its Git checkout and requires:
 
 ```text
-repository: tencent/Hunyuan3D-2mv
-revision: 08766051fa711c6ef5caf86b97e50304fdfcf0ef
-subfolder: hunyuan3d-dit-v2-mv
+git HEAD == pinned source commit
+working tree clean
 ```
 
-HunyuanDiT text-reference weights:
+A different commit or locally modified checkout is a hard failure. The actual resolved checkout path/commit is recorded in the generation manifest.
+
+This prevents a locally edited/editable-installed Hunyuan checkout from silently producing evidence under the pinned commit label.
+
+## Text-reference baseline
+
+The distilled text-reference model uses its native Diffusers pipeline rather than an unproved custom PAG layer selection:
 
 ```text
-repository: Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
-revision: 527cf2ecce7c04021975938f8b0e44e35d2b1ed9
+HunyuanDiTPipeline
+steps: 25
+guidance_scale: 7.5
+size: 1024 × 1024
+seed: 0
+offload: model CPU offload
 ```
 
-`runtime_contract.py` owns these pins. Runners must record them in manifests.
+Do not add PAG/custom layer routing unless same-prompt measured evidence later proves it improves LazyBuilder's downstream geometry reference quality.
 
-The Hunyuan3D runner explicitly downloads the pinned model snapshot before calling the upstream pipeline because the audited upstream `smart_load_model()` path does not expose a model revision argument itself.
+## Shape extraction baseline
+
+The Hunyuan3D call records and passes the extraction-critical values explicitly so upstream default changes cannot silently alter evidence:
+
+```text
+steps: 30
+guidance_scale: 7.5
+octree_resolution: 256
+num_chunks: 8000
+seed: 12345
+variant: fp16
+use_safetensors: true
+box_v: 1.01
+mc_level: 0.0
+mc_algo: null
+output_type: trimesh
+background removal: ON
+texture: OFF
+```
+
+The first profile is intentionally bounded for the 8 GB development GPU. It is not claimed as the final quality/performance optimum.
 
 ## Installation strategy
 
@@ -52,43 +96,37 @@ Use an isolated environment dedicated to LazyBuilder generation.
 
 ```text
 1. install a PyTorch/CUDA build compatible with the actual NVIDIA driver;
-2. clone Tencent-Hunyuan/Hunyuan3D-2 at the exact source commit above;
-3. install the pinned source repository's requirements;
-4. ensure the pinned source checkout provides `hy3dgen` to the environment;
-5. install/verify Diffusers + Transformers + Accelerate required by HunyuanDiT;
-6. keep Hugging Face cache available for the pinned model snapshots;
-7. run preflight capture before any first generation session.
+2. clone Tencent-Hunyuan/Hunyuan3D-2 at the exact pinned commit;
+3. install the pinned checkout's requirements;
+4. install the checkout so `hy3dgen` resolves back to that Git tree;
+5. install/verify Diffusers + Transformers + Accelerate + huggingface_hub;
+6. keep Hugging Face cache available for pinned model snapshots;
+7. ensure Blender is available on PATH for the acceptance host;
+8. run preflight capture before generation.
 ```
 
-Do **not** duplicate the upstream Hunyuan dependency list into root `requirements.txt`. Root `requirements.txt` intentionally remains the small deterministic schematic-writer environment (`mcschematic==11.4.4`).
+Root `requirements.txt` remains intentionally limited to the deterministic schematic-writer environment (`mcschematic==11.4.4`). Do not duplicate Hunyuan's large upstream dependency set there.
 
-Do not build texture-only custom rasterizers for the first LazyBuilder proof unless the shape-only path unexpectedly proves they are required. Texture remains OFF.
+## Preflight is fail-closed
 
-## Why Python / Torch / CUDA are not guessed here
-
-The exact compatible Python, PyTorch, CUDA runtime and NVIDIA driver combination must be recorded from the actual target machine before runtime. Static CI uses Python 3.11 for repository contracts only and is not evidence that Hunyuan GPU runtime is compatible with that exact local stack.
-
-The first preflight must capture at minimum:
+`validator/collect_environment.py` records installed package/executable facts **without launching inference**. `artifact_validation.py` allows preflight PASS only when:
 
 ```text
-OS / architecture
-Python version
-PyTorch version
-CUDA runtime / driver
-GPU name + VRAM
-Diffusers / Transformers / Accelerate / huggingface_hub versions
-Hunyuan3D source commit
-Hunyuan3D model revision
-HunyuanDiT model revision
-Blender version
-Minecraft/Axiom/Paper environment facts
+required runtime packages are installed
+required executable paths are available
+installed generation API signatures match LazyBuilder wrapper expectations
+actual hy3dgen checkout is the pinned clean commit
+required machine/Axiom/Paper facts are declared
+pinned model/source identities match
 ```
 
-`validator/collect_environment.py` owns the machine-readable preflight capture surface.
+Exact Python/PyTorch/CUDA/driver versions are captured from the actual target host rather than guessed in repository documentation.
 
-## Cache and model identity
+If the environment is changed after preflight, invalidate/re-run preflight before continuing. Do not reuse old environment evidence after package, driver, Blender, Hunyuan source, or Axiom/Paper changes.
 
-Never rely on an unqualified mutable `main` model snapshot during acceptance evidence.
+## Cache/model identity
+
+Never rely on mutable model `main` during acceptance evidence.
 
 ```text
 model ID + revision
@@ -96,20 +134,8 @@ model ID + revision
 → manifest
 ```
 
-If a pinned snapshot is intentionally changed, treat that as a generation-contract change and invalidate affected downstream evidence.
+The Hunyuan3D runner explicitly resolves the pinned Hugging Face snapshot before calling the upstream pipeline because the audited upstream model-loading path does not expose a revision argument itself.
 
 ## Runtime boundary
 
-Preparing/installing this environment later is `local` execution work. Repository/static verification only proves that the pins, commands, and manifests are internally consistent.
-
-No Hunyuan runtime has been executed merely because this file exists.
-
-The collector auto-records these immutable repository-owned identities; the user does not need to type them manually:
-
-```text
-hunyuan3d_source_commit
-hunyuan3d_model_revision
-hunyuandit_model_revision
-```
-
-Machine/environment facts remain explicit records because they must come from the actual runtime host rather than repository assumptions.
+Environment setup and future inference are `local` execution work. Static CI proves wrapper contracts and source pins, not CUDA startup, VRAM sufficiency, generated mesh quality, or runtime performance.
