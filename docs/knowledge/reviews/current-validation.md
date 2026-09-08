@@ -8,7 +8,7 @@ Working branch: `develop`.
 Verified integration baseline: `Local`.  
 Stable branch: `main`.
 
-LazyBuilder is **pre-MVP**. The current change is a repository operating-system bootstrap candidate, not a claim that Hunyuan/Blender/Minecraftize/Axiom execution is complete.
+LazyBuilder remains **pre-MVP**. Repository operating/documentation structure is now implemented on the `develop` candidate; product runtime is not yet claimed.
 
 ## Current production chain
 
@@ -23,16 +23,33 @@ reference images
 → Minecraft Java
 ```
 
-## Repository bootstrap proof status
+## Repository operating-system proof
 
-Pending until the candidate is committed and verification executes:
+Candidate commit:
 
-- canonical governance owners present;
-- foundation/knowledge routing coherent;
-- one `kits/lazy-builder/` product package present;
-- old duplicate docs retired;
-- static repository verifier passes;
-- `develop → Local` promotion gate passes before milestone promotion.
+```text
+3ff6b3e259aecc8342f43f8ba5b8e83d64c51d7e
+chore(governance): adopt structured repository operating system
+```
+
+GitHub Actions evidence:
+
+```text
+Repository Verify
+run 34202778188
+Static repository contract → PASS
+```
+
+The static gate proved:
+
+- required governance/foundation/knowledge/kit owners exist;
+- canonical skill set is exactly `development-brief` + `build-production`;
+- `kits/lazy-builder/` has the intended bounded domain shape;
+- old duplicate `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, and `docs/TOOLS.md` are retired;
+- branch-contract/product markers are present;
+- tracked internal Markdown links resolve.
+
+`develop → Local` promotion verification is the remaining integration boundary before this operating structure becomes the verified `Local` baseline.
 
 ## Product/runtime proof status
 
