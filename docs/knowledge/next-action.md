@@ -2,9 +2,9 @@
 
 ## Current Status
 
-`REPOSITORY_OPERATING_SYSTEM_COMPLETE`
+`M1_WRITER_PROOF_PASS_RUNTIME_REQUIRED`
 
-The PRD-Creator-style operating/documentation baseline is complete and verified.
+The repository operating system and execution-mode baseline are established. M1 has now passed its executable writer/round-trip layer, but it is **not yet end-to-end complete** because Axiom/Minecraft runtime proof is still required.
 
 Branch state:
 
@@ -20,7 +20,7 @@ Verified `Local` milestone:
 98046e2339aff0beff3caff8dee9030b258686ef
 ```
 
-The locked product stack remains:
+Locked product stack:
 
 ```text
 Hunyuan3D-2mv
@@ -31,39 +31,52 @@ Hunyuan3D-2mv
 → Minecraft Java
 ```
 
-## Completed Boundary
+## M1 Writer Proof — PASS
 
-Repository routing, foundation policy, knowledge memory, decisions, reviews, backlog, product package ownership, workspace safety, repository verification, and promotion governance are established.
+```text
+workflow: M1 Schematic Smoke
+run: 34215078021
+result: PASS
+artifact: lazybuilder-m1-schematic-je-1-21-4
+artifact id: 10051411457
+fixture target: JE_1_21_4
+```
 
-Do not reopen or expand this operating-system layer without a concrete defect.
+The generated `.schem` is non-empty and reloads with exact BlockState equality for:
+
+```text
+full block
+north-facing bottom stair
+ top slab
+```
+
+This proves the `mcschematic` writer path only. It does not prove Axiom or Minecraft behavior.
 
 ## Next Step
 
-**M1 — prove a minimal programmatic `.schem` can be imported into Axiom and placed in Minecraft Java.**
-
-M1 should establish the writer/handoff path before Hunyuan or Minecraftize complexity is introduced.
-
-Expected proof sequence:
+**Complete M1 runtime proof using the exact generated `lazybuilder_m1_smoke.schem`.**
 
 ```text
-minimal programmatic block structure
-→ mcschematic
-→ test .schem
+CI artifact
+→ lazybuilder_m1_smoke.schem
 → Axiom Import Schematic
-→ Clipboard
-→ place in Minecraft Java world
-→ record exact runtime result / compatibility notes
+→ confirm Clipboard
+→ place in Minecraft Java
+→ verify full block / north-facing bottom stair / top slab
+→ record Minecraft version + Axiom version + exact result
 ```
+
+End-to-end M1 becomes PASS only after the Axiom and Minecraft checks succeed.
 
 ## Stop Boundary
 
-Await an explicit next scope before starting M1.
-
 Do not automatically:
 
-- install/configure Hunyuan3D-2mv;
+- start M2 / install or configure Hunyuan3D-2mv;
 - implement Minecraftize;
-- add stairs/slabs;
+- expand stair/slab conversion beyond this fixture;
 - add MCP;
 - add another 3D provider;
-- promote `Local` to `main`.
+- promote `develop` to `Local` or `Local` to `main`.
+
+If Axiom/Minecraft runtime fails, diagnose the exact first wrong owner before changing the writer or compatibility target.
