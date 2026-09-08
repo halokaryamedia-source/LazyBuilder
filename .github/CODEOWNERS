@@ -1,0 +1,20 @@
+# Default owner
+* @halokaryamedia-source
+
+# Repository governance and CI
+/AGENTS.md @halokaryamedia-source
+/GITHUB_RULES.md @halokaryamedia-source
+/CONTEXT.md @halokaryamedia-source
+/.github/ @halokaryamedia-source
+/tools/ @halokaryamedia-source
+
+# Product policy and implementation
+/docs/foundation/ @halokaryamedia-source
+/docs/knowledge/ @halokaryamedia-source
+/.agents/skills/ @halokaryamedia-source
+/kits/lazy-builder/ @halokaryamedia-source
+
+# Workspace policy only; live project subdirectories are ignored
+/workspace/README.md @halokaryamedia-source
+/workspace/active/README.md @halokaryamedia-source
+/workspace/archive/README.md @halokaryamedia-source
