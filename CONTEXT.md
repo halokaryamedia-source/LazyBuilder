@@ -81,6 +81,22 @@ Authority decreases downstream. Generated 3D, preview, schematic, and final scre
 - **Final editor / placement:** Axiom.
 - **Target:** Minecraft Java Edition.
 
+## Development operator profile
+
+Preferred repository Development model: **GPT Astra 6 — ExtraHigh**.
+
+The repository is optimized for that high-reasoning workflow through small context packets, explicit ownership, falsifiable acceptance criteria, and deterministic proof. This is not a product dependency and must not introduce model-specific runtime code, hidden-state assumptions, prompt scaffolding frameworks, or duplicate documentation.
+
+Canonical execution principle:
+
+```text
+Astra6 reasons about meaning / architecture / diagnosis
+→ code performs deterministic computation
+→ runtime proves runtime behavior
+```
+
+Detailed model-execution rules are owned by `AGENTS.md` and `.agents/skills/development-brief/SKILL.md`. The durable rationale is recorded under `docs/knowledge/decisions/astra6-extrahigh-development-profile.md`.
+
 ## Explicitly inactive scope
 
 Do not add by default:
@@ -124,6 +140,8 @@ Do not commit private references, client imagery, generated GLBs, `.blend` work 
 - build Minecraftize incrementally: full blocks first, then stairs, then slabs;
 - add wall/fence/pane/decorative blocks only from real use cases;
 - prefer existing tools over custom infrastructure;
+- use Astra6 ExtraHigh reasoning to reduce rework, not to expand scope;
+- keep deterministic calculations and file-format mechanics in code rather than prose/model improvisation;
 - use the cheapest proof that can falsify the active claim;
 - historical audits/backlog/TODOs are not active work unless promoted by current continuation;
 - `No change required` is valid;
@@ -132,7 +150,7 @@ Do not commit private references, client imagery, generated GLBs, `.blend` work 
 ## Repository map
 
 ```text
-AGENTS.md            top-level routing / continuity rules
+AGENTS.md            top-level routing / continuity / model-execution rules
 GITHUB_RULES.md      GitHub execution / history / proof discipline
 CONTEXT.md           stable product/repository orientation
 docs/foundation/     durable Flow policy

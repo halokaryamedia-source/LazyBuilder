@@ -173,6 +173,65 @@ Canonical current-state owners:
 
 Update `next-action.md` only when status, active boundary, blocker, deferred boundary, or next meaningful step actually changes.
 
+## Target development model profile
+
+Preferred repository Development operator: **GPT Astra 6 — ExtraHigh**.
+
+This is an execution profile, not a product/runtime dependency. LazyBuilder must remain understandable and operable by another capable model or developer without relying on hidden reasoning state, model-specific prompt tricks, or chat history.
+
+### Astra6 context contract
+
+After the mandatory boot, keep the active packet small:
+
+```text
+current goal
++ first relevant owner
++ hard constraints / out-of-scope
++ 2–5 acceptance criteria
++ proof budget
++ exact current evidence
+```
+
+- Default to **1–3 additional owner files**, not repository-wide reading.
+- Prefer exact paths, current state, schemas, tests, and concrete failures over narrative summaries.
+- Do not ask Astra6 to restate repository architecture that canonical owners already define.
+- Do not create a task-plan document merely to externalize reasoning; durable state belongs only in the existing canonical owner when it actually changes.
+
+### Astra6 reasoning allocation
+
+Use high reasoning where it changes quality:
+
+```text
+requirements / architecture / tradeoffs / root-cause diagnosis
+→ Astra6 reasoning
+
+geometry math / block-state transforms / serialization / repeatable checks
+→ deterministic code
+
+Hunyuan / Blender / Axiom / Minecraft behavior
+→ matching runtime execution
+```
+
+Astra6 may propose hypotheses and implementation strategies, but deterministic/runtime evidence remains authoritative for executable claims.
+
+### Astra6 execution style
+
+For non-trivial Development:
+
+```text
+recover minimum context
+→ diagnose first wrong owner
+→ define smallest complete slice
+→ implement rather than over-plan
+→ run cheapest falsifying proof
+→ inspect actual result
+→ repair only invalidated scope
+→ update canonical continuity/decision owner only if changed
+→ STOP
+```
+
+Prefer one complete bounded implementation pass over repeated speculative rewrites. Use ExtraHigh reasoning to reduce tool calls and rework, not to justify broader scope.
+
 ## Skill budget
 
 Canonical root skills:
@@ -187,7 +246,7 @@ Canonical root skills:
 - Maintenance → specialist optional.
 - Plan → no specialist by default.
 
-Do not create Blender/Hunyuan/exporter/validator skills merely because those surfaces exist.
+Do not create Blender/Hunyuan/exporter/validator skills merely because those surfaces exist. Do not create an Astra-specific skill; the model profile is a cross-cutting execution rule owned here and by `development-brief`.
 
 ## Execution channel
 
