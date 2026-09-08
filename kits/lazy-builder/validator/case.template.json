@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "case_id": "replace-with-one-bounded-test-object",
+  "minecraft_version": "1.21.4",
+  "inputs": {
+    "T1": {
+      "kind": "text",
+      "prompt_path": "inputs/text/prompt.txt"
+    },
+    "I1": {
+      "kind": "single",
+      "views": {
+        "front": "inputs/single/front.png"
+      }
+    },
+    "I2": {
+      "kind": "multiview",
+      "views": {
+        "front": "inputs/multiview/front.png",
+        "right": "inputs/multiview/right.png",
+        "back": "inputs/multiview/back.png",
+        "left": "inputs/multiview/left.png"
+      }
+    }
+  },
+  "target": {
+    "target_width_blocks": 64
+  },
+  "notes": [
+    "Replace the example case_id, prompt, images, and target width before the first local acceptance session.",
+    "T1, I1, and I2 should describe the same bounded object/build when comparison quality matters."
+  ]
+}
