@@ -2,143 +2,194 @@
 
 ## Current Status
 
-`M2_GENERATION_CONTRACT_IMPLEMENTED_LOCAL_RUNTIME_REQUIRED`
+`M2_INPUT_TO_3D_IMPLEMENTATION_READY_LOCAL_RUNTIME_REQUIRED`
 
-The repository operating system, Astra6 profile, execution modes, M1 writer/Axiom research baseline, and the image/text→3D generation contract are established.
+The repository operating system, Astra6 profile, execution-mode routing, M1 writer/Axiom research baseline, and the image/text→3D implementation contract are now established.
 
-The user explicitly advanced Flow 3 implementation work while the exact M1 Axiom/Paper/Minecraft runtime proof remains pending. This does **not** convert M1 to PASS; it only allows generation scaffolding/research to proceed in parallel.
+The user explicitly advanced Flow 2/3 generation implementation while the exact M1 Axiom/Paper/Minecraft runtime proof remains pending. This does **not** mark M1 PASS.
 
 Branch state:
 
 ```text
 develop → active Development continuation
-Local   → verified operating-system milestone
+Local   → verified integration milestone
 main    → stable repository history
 ```
 
-## Locked generation architecture
+## Locked input-to-3D architecture
 
 ```text
-MULTIVIEW (preferred)
+IMAGE / MULTIVIEW
 front / right / back / left
 → Hunyuan3D-2mv
 → model.glb
 
-SINGLE CANONICAL IMAGE
-front OR right OR back OR left
-→ Hunyuan3D-2mv
-→ model.glb
-
 TEXT
-→ HunyuanDiT v1.2 Distilled Lite
+→ Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
 → reference_front.png
 → USER REVIEW / APPROVAL
 → Hunyuan3D-2mv
 → model.glb
 ```
 
-Hunyuan3D-2mv remains the **only 3D provider**. HunyuanDiT is an auxiliary 2D reference generator used only for text input.
+Hunyuan3D-2mv remains the **only 3D provider**. HunyuanDiT is only an auxiliary 2D reference generator.
 
-Do not independently generate four T2I views for text mode.
+The temporary/unverified `HunyuanDiT v1.2 Distilled Lite` label is retired from the active contract.
 
 ## Implemented repository runners
 
 ```text
+kits/lazy-builder/generation/runtime_contract.py
 kits/lazy-builder/generation/generate_text_reference.py
 kits/lazy-builder/generation/generate_shape.py
+kits/lazy-builder/generation/test_generation_contract.py
 ```
 
-Text and shape are separate processes so the 8 GB GPU does not need both models resident at the same time.
+Text and shape are separate processes so the 8 GB GPU does not need both models resident simultaneously.
 
-Current shape baseline:
+## First-proof text baseline
 
 ```text
-model_path: tencent/Hunyuan3D-2mv
+model: Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled
+steps: 25
+PAG scale: 1.3
+size: 1024 × 1024
+seed: 0
+offload: model CPU offload
+output: reference_front.png
+handoff: USER_REVIEW_REQUIRED_BEFORE_3D
+```
+
+## First-proof shape baseline
+
+```text
+model: tencent/Hunyuan3D-2mv
 subfolder: hunyuan3d-dit-v2-mv
 steps: 30
-guidance: 7.5
+guidance_scale: 7.5
 octree_resolution: 256
-num_chunks: 20000
+num_chunks: 8000
 seed: 12345
+background removal: ON
 texture: OFF
+output: model.glb
 ```
 
-Current text-reference baseline:
-
-```text
-model: Tencent-Hunyuan/HunyuanDiT-v1.2-Diffusers-Distilled
-official Lite runner
-seed: 42
-steps: 50
-guidance: 6
-```
+Fast/Turbo variants are not routed automatically. Standard is proven first.
 
 ## Next Step — local generation runtime proof
 
-Use `local` mode. Do not claim runtime success from repository CI.
+Use `local` mode. Repository/CI proof is not GPU runtime proof.
 
-### 1. Local preflight
+### 1. Environment preflight
 
 Record:
 
 ```text
 OS
-GPU / VRAM
+GPU + exact VRAM
 NVIDIA driver
-Python version(s)
-CUDA/PyTorch versions
-free system RAM/disk
+Python
+PyTorch
+CUDA
+system RAM
+free disk
 ```
 
-### 2. Prove text-reference stage
+### 2. Text-reference proof
 
-Set up/use the official Tencent-Hunyuan/HunyuanDiT Lite environment.
+Run one bounded prompt:
 
-Run one bounded prompt through:
+```bash
+python kits/lazy-builder/generation/generate_text_reference.py \
+  --prompt "<test object/building>" \
+  --output-dir workspace/active/generation-proof/generated/text
+```
+
+Record:
 
 ```text
-generate_text_reference.py
-→ reference_front.png
+reference generated yes/no
+runtime
+peak VRAM
+major visual defects
 ```
 
-Record peak VRAM and verify the image is usable as a front reference.
+### 3. Approval gate
 
-### 3. Review gate
-
-Do not continue to 3D automatically. Inspect/approve the generated reference first.
-
-### 4. Prove Hunyuan3D-2mv shape stage
-
-Set up/use the official Hunyuan3D-2 environment separately from Blender Python.
-
-First test:
+Inspect `reference_front.png` before shape generation.
 
 ```text
-one approved front image
-→ generate_shape.py
-→ model.glb
+APPROVED
+→ continue
+
+REJECTED
+→ fix/regenerate only the text-reference stage
 ```
 
-Then test a consistent multiview set when available.
+Do not silently continue from a poor text-generated reference.
+
+### 4. Single-view shape proof
+
+Use the approved front image:
+
+```bash
+python kits/lazy-builder/generation/generate_shape.py \
+  --front workspace/active/generation-proof/generated/text/reference_front.png \
+  --output-dir workspace/active/generation-proof/generated/shape-single
+```
 
 Record:
 
 ```text
 model/subfolder
 parameters
-peak VRAM
 runtime
-GLB opens correctly
-major geometry defects
+peak VRAM
+model.glb generated
+mesh defects
 ```
 
-### 5. Compare only what matters
+### 5. Multiview shape proof
 
-Do not tune variants/providers yet. First answer:
+When a consistent source set is available, repeat with front/right/back/left and compare against the single-view result.
+
+Do not change provider/variant during the first controlled proof.
+
+### 6. Blender compatibility proof
+
+Open the exact generated `model.glb` in Blender 5.2.x LTS and record:
 
 ```text
-Does the standard Hunyuan3D-2mv baseline run reliably on RTX 3070 8 GB?
-Does the generated geometry preserve the reference well enough for Minecraft discretization?
+import success
+orientation
+scale sanity
+mesh integrity
+major floating/noisy geometry
+```
+
+Only after a usable GLB is proven should Minecraftize runtime implementation begin.
+
+## Failure routing
+
+```text
+text model fails to start
+→ HunyuanDiT environment / PyTorch / CUDA / offload
+
+text image runs but concept is wrong
+→ text/reference stage only
+
+shape model fails to start
+→ Hunyuan3D environment / extension / PyTorch / CUDA / VRAM
+
+single view works, multiview fails
+→ named-view consistency / multiview runtime
+
+GLB generated but Blender rejects it
+→ generation/export compatibility
+
+mesh looks imperfect
+→ determine whether defect matters after Minecraft discretization before changing variants/providers
 ```
 
 ## M1 runtime remains pending
@@ -152,17 +203,16 @@ AxiomPaper 5.0.1 handshake/placement
 Minecraft BlockState verification
 ```
 
-This pending proof remains visible; do not silently mark it complete.
-
 ## Stop Boundary
 
 Do not automatically:
 
-- add Hunyuan3D-2 base / Tripo / TRELLIS / Pixal3D;
-- add Fast/Turbo model routing;
-- auto-generate four text views;
-- enable texture generation;
-- integrate Hunyuan into Blender Python;
-- implement Minecraftize before the first local GLB proof;
+- add Tripo / TRELLIS / Pixal3D / another 3D provider;
+- add Hunyuan3D-2 base as a parallel path;
+- add Fast/Turbo routing;
+- generate four independent T2I views;
+- enable Hunyuan texture generation;
+- combine Hunyuan runtime with Blender Python;
+- implement Minecraftize runtime before first usable GLB proof;
 - add MCP/API-server orchestration;
 - promote `develop` to `Local` or `Local` to `main`.
