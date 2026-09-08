@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "minecraft_version": "1.21.4",
+  "cases": [
+    {
+      "id": "full_stone_bricks",
+      "family": "full",
+      "expected_state": "minecraft:stone_bricks",
+      "engine_milestone": "V0"
+    },
+    {
+      "id": "stair_north_bottom_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=north,half=bottom,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_east_bottom_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=east,half=bottom,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_south_bottom_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=south,half=bottom,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_west_bottom_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=west,half=bottom,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_north_top_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=north,half=top,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_east_top_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=east,half=top,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_south_top_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=south,half=top,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_west_top_straight",
+      "family": "stair",
+      "expected_state": "minecraft:stone_brick_stairs[facing=west,half=top,shape=straight,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "stair_north_bottom_inner_left",
+      "family": "stair_corner",
+      "expected_state": "minecraft:stone_brick_stairs[facing=north,half=bottom,shape=inner_left,waterlogged=false]",
+      "engine_milestone": "V1-corner"
+    },
+    {
+      "id": "stair_north_bottom_inner_right",
+      "family": "stair_corner",
+      "expected_state": "minecraft:stone_brick_stairs[facing=north,half=bottom,shape=inner_right,waterlogged=false]",
+      "engine_milestone": "V1-corner"
+    },
+    {
+      "id": "stair_north_bottom_outer_left",
+      "family": "stair_corner",
+      "expected_state": "minecraft:stone_brick_stairs[facing=north,half=bottom,shape=outer_left,waterlogged=false]",
+      "engine_milestone": "V1-corner"
+    },
+    {
+      "id": "stair_north_bottom_outer_right",
+      "family": "stair_corner",
+      "expected_state": "minecraft:stone_brick_stairs[facing=north,half=bottom,shape=outer_right,waterlogged=false]",
+      "engine_milestone": "V1-corner"
+    },
+    {
+      "id": "slab_bottom",
+      "family": "slab",
+      "expected_state": "minecraft:stone_slab[type=bottom,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "slab_top",
+      "family": "slab",
+      "expected_state": "minecraft:stone_slab[type=top,waterlogged=false]",
+      "engine_milestone": "V1"
+    },
+    {
+      "id": "slab_double",
+      "family": "slab",
+      "expected_state": "minecraft:stone_slab[type=double,waterlogged=false]",
+      "engine_milestone": "V1"
+    }
+  ]
+}
