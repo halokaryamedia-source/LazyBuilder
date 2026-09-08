@@ -10,7 +10,7 @@ Stable branch: `main`.
 
 LazyBuilder remains **pre-MVP**. The PRD-Creator-style repository operating/documentation baseline is verified and promoted to `Local`; product runtime is not yet claimed.
 
-The current `develop` cycle additionally defines **GPT Astra 6 ExtraHigh** as the preferred repository Development operator profile while keeping repository authority and executable proof model-portable.
+The current `develop` cycle additionally defines **GPT Astra 6 ExtraHigh** as the preferred repository Development operator profile and formalizes the two execution modes **`remote_github`** and **`local`** while keeping repository authority and executable proof model-portable.
 
 ## Current production chain
 
@@ -94,7 +94,46 @@ The change establishes these current Development boundaries:
 - no Astra-specific skill/framework/MCP layer was introduced;
 - repository memory remains the durable authority so another capable model/developer can reproduce current state without hidden reasoning history.
 
-This profile is verified as repository/documentation policy only. It is not a claim that one model configuration is universally superior or that product runtime behavior is proven.
+## Local / Remote GitHub execution-mode evidence
+
+Current execution-mode candidate ends at:
+
+```text
+98902b1d018eff3a04dc0ca68b964a8bc7d8e217
+docs(governance): complete local and remote_github mode routing
+```
+
+Repository verification:
+
+```text
+Repository Verify
+run 34211141538
+Static repository contract → PASS
+```
+
+Current execution contract:
+
+```text
+remote_github
+→ exact remote state / bounded repository-native changes / branch / PR / CI / promotion
+
+local
+→ real clone/worktree / coding / dependencies / build / tests / binary artifacts /
+  Hunyuan / Blender / Axiom / Minecraft runtime
+```
+
+Naming is explicitly protected:
+
+```text
+local  = execution mode
+Local  = verified integration branch
+```
+
+Normal local source work still targets `develop`. Local implementation may hand off to `remote_github` after targeted proof and push so remote state/CI/PR/promotion can be verified without turning GitHub into a remote shell.
+
+No `local` or `remote_github` root skill, framework, mode daemon, or temporary runtime workflow was added. `tools/verify_repository.py` now checks the canonical execution-mode owners and keeps the root skill set unchanged.
+
+This proves repository routing/policy only. It does not prove that a local workstation is configured or that any product runtime has executed successfully.
 
 ## Product/runtime proof status
 
