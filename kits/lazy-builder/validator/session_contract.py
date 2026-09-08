@@ -33,6 +33,7 @@ STAGE_ORDER = (
     "blender",
     "minecraftize_primitives",
     "minecraftize_model",
+    "minecraft_preview",
     "schematic",
     "axiom",
 )
@@ -83,7 +84,7 @@ STAGE_DEFINITIONS: dict[str, dict[str, Any]] = {
     "minecraftize_primitives": {
         "folder": "40-minecraftize-primitives",
         "owner": "minecraftize primitive",
-        "dependencies": ("blender",),
+        "dependencies": ("preflight",),
         "required": True,
         "outputs": ("blocks.json", "report.json"),
     },
@@ -94,10 +95,17 @@ STAGE_DEFINITIONS: dict[str, dict[str, Any]] = {
         "required": True,
         "outputs": ("blocks.json", "report.json"),
     },
+    "minecraft_preview": {
+        "folder": "45-preview",
+        "owner": "minecraftize preview",
+        "dependencies": ("minecraftize_model",),
+        "required": True,
+        "outputs": ("preview.svg", "manifest.json"),
+    },
     "schematic": {
         "folder": "50-schematic",
         "owner": "schematic exporter",
-        "dependencies": ("minecraftize_model",),
+        "dependencies": ("minecraftize_model", "minecraft_preview"),
         "required": True,
         "outputs": ("build.schem", "manifest.json"),
     },
@@ -269,9 +277,7 @@ def _case_input_snapshot(case: Mapping[str, Any], case_root: Path) -> dict[str, 
         },
         "I1": {
             "kind": "single",
-            "views": {
-                "front": entry(case["inputs"]["I1"]["views"]["front"]),
-            },
+            "views": {"front": entry(case["inputs"]["I1"]["views"]["front"])},
         },
         "I2": {
             "kind": "multiview",
@@ -291,16 +297,26 @@ def create_session(
     run_dir = run_dir.expanduser().resolve()
     now = utc_now()
     input_snapshot = _case_input_snapshot(case, case_root)
-    expected = {stage_id: [str((run_dir / STAGE_DEFINITIONS[stage_id]["folder"] / name).resolve()) for name in STAGE_DEFINITIONS[stage_id]["outputs"]] for stage_id in STAGE_ORDER}
+    expected = {
+        stage_id: [
+            str((run_dir / STAGE_DEFINITIONS[stage_id]["folder"] / name).resolve())
+            for name in STAGE_DEFINITIONS[stage_id]["outputs"]
+        ]
+        for stage_id in STAGE_ORDER
+    }
     stage_inputs = {
         "preflight": [],
         "text_reference": [input_snapshot["T1"]["prompt"]["path"]],
         "shape_text": [expected["text_reference"][0]],
         "shape_single": [input_snapshot["I1"]["views"]["front"]["path"]],
-        "shape_multiview": [input_snapshot["I2"]["views"][view]["path"] for view in ("front", "right", "back", "left")],
+        "shape_multiview": [
+            input_snapshot["I2"]["views"][view]["path"]
+            for view in ("front", "right", "back", "left")
+        ],
         "blender": [],
-        "minecraftize_primitives": [expected["blender"][0], expected["blender"][1]],
+        "minecraftize_primitives": [],
         "minecraftize_model": [expected["blender"][0], expected["blender"][1]],
+        "minecraft_preview": [expected["minecraftize_model"][0]],
         "schematic": [expected["minecraftize_model"][0]],
         "axiom": [expected["schematic"][0], expected["schematic"][1]],
     }
@@ -343,7 +359,7 @@ def create_session(
         "inputs": input_snapshot,
         "artifacts": {},
         "selected_shape_stage": None,
-        "known_limitations": [],
+        "known_limitations": ["Minecraftize V0 supports full blocks only; stairs/slabs remain SKIPPED."],
         "stages": stages,
     }
     refresh_ready(session)
@@ -443,15 +459,55 @@ def resolve_case_input(session: Mapping[str, Any], raw: str) -> Path:
     return _resolve_input(root, raw)
 
 
-def record_inputs(stage: dict[str, Any]) -> None:
+def _walk_snapshot_digests(value: Any, result: dict[str, str]) -> None:
+    if isinstance(value, dict):
+        path = value.get("path")
+        digest = value.get("sha256")
+        if isinstance(path, str) and isinstance(digest, str):
+            result[str(Path(path).resolve())] = digest
+        for child in value.values():
+            _walk_snapshot_digests(child, result)
+    elif isinstance(value, list):
+        for child in value:
+            _walk_snapshot_digests(child, result)
+
+
+def authoritative_input_digests(session: Mapping[str, Any]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    _walk_snapshot_digests(session.get("inputs", {}), result)
+    for stage in stage_map(session).values():
+        for raw, digest in stage.get("output_digests", {}).items():
+            if isinstance(raw, str) and isinstance(digest, str):
+                result[str(Path(raw).resolve())] = digest
+    return result
+
+
+def record_inputs(session: Mapping[str, Any], stage: dict[str, Any]) -> None:
+    authoritative = authoritative_input_digests(session)
+    known_outputs = {
+        str(Path(raw).resolve())
+        for candidate in stage_map(session).values()
+        for raw in candidate.get("output_paths", [])
+    }
     digests: dict[str, str] = {}
     missing = []
     for raw in stage.get("input_paths", []):
-        path = Path(raw)
+        path = Path(raw).resolve()
+        key = str(path)
         if not path.is_file():
-            missing.append(str(path))
-        else:
-            digests[str(path)] = sha256_file(path)
+            missing.append(key)
+            continue
+        actual = sha256_file(path)
+        expected = authoritative.get(key)
+        if expected is not None and actual != expected:
+            raise ContractError(
+                f"input drift detected for {key}: expected {expected}, got {actual}; invalidate the owning stage before continuing"
+            )
+        if expected is None and key in known_outputs:
+            raise ContractError(
+                f"upstream artifact has no recorded PASS digest: {key}; do not consume unverified stage output"
+            )
+        digests[key] = actual
     if missing:
         raise ContractError(f"required stage inputs are missing: {missing}")
     stage["input_digests"] = digests
@@ -468,7 +524,7 @@ def record_artifacts(stage: dict[str, Any]) -> None:
         elif path.stat().st_size == 0:
             empty.append(str(path))
         else:
-            digests[str(path)] = sha256_file(path)
+            digests[str(path.resolve())] = sha256_file(path)
     if missing:
         raise ContractError(f"expected stage outputs are missing: {missing}")
     if empty:

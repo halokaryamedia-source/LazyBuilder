@@ -1,18 +1,37 @@
 # LazyBuilder
 
-LazyBuilder is an AI-assisted R&D system for converting non-Minecraft visual references into Minecraft Java structures that can be exported as `.schem` and loaded in Axiom.
+LazyBuilder is an AI-assisted R&D system for converting text or non-Minecraft visual references into Minecraft Java structures that can be previewed, exported as `.schem`, and loaded in Axiom.
 
-## Input → Output
+## Canonical Input → Output
 
-| Input | Processing | Output |
-|---|---|---|
-| Multi-view reference images | Hunyuan3D-2mv shape generation | `model.glb` |
-| Generated GLB | Blender target preparation | cleaned working target |
-| Blender target | Minecraftize conversion | Minecraft block preview |
-| Minecraft block model | `mcschematic` export | `.schem` |
-| `.schem` | Axiom import / placement | Minecraft Java world structure |
+```text
+T1 TEXT
+→ HunyuanDiT reference
+→ approval
+→ Hunyuan3D-2mv
+→ model.glb
 
-The generated 3D mesh is not the final product. LazyBuilder's custom value is the **Minecraftize** stage that converts target geometry into increasingly Minecraft-native block usage.
+I1 SINGLE IMAGE
+→ Hunyuan3D-2mv
+→ model.glb
+
+I2 MULTIVIEW
+front / right / back / left
+→ Hunyuan3D-2mv
+→ model.glb
+
+three shape paths
+→ select representative GLB
+→ Blender LazyBuilderTarget
+→ Minecraftize V0
+→ canonical blocks.json
+├→ canonical preview.svg
+└→ mcschematic → build.schem
+→ Axiom / AxiomPaper / Paper
+→ Minecraft Java world structure
+```
+
+The generated mesh is not the final product. LazyBuilder's custom value is **Minecraftize**, which converts prepared geometry into deterministic Minecraft block placement.
 
 ## Branch Model
 
@@ -26,14 +45,12 @@ Repository behavior is routed by [AGENTS.md](AGENTS.md); GitHub execution policy
 
 ## Execution Modes
 
-LazyBuilder uses two work channels:
-
 ```text
 remote_github
 → remote repository state, bounded docs/policy, branch/ref, PR, CI, promotion
 
 local
-→ source coding, dependencies/build/tests, binary artifacts,
+→ source implementation, dependencies/build/tests, binary artifacts,
   Hunyuan, Blender, Axiom, Minecraft runtime
 ```
 
@@ -46,81 +63,80 @@ Local  = verified integration branch
 
 Normal source development in `local` mode still uses branch `develop`.
 
-Typical cycle:
-
-```text
-remote_github → pin/recover remote authority when needed
-local         → implement + targeted proof + commit/push develop
-remote_github → confirm remote state/CI → PR/promotion when required
-```
-
-Do not create GitHub Actions or helper infrastructure merely to emulate a local runtime.
-
 ## Locked MVP Stack
 
+- **HunyuanDiT** — T1 text-reference generator only.
 - **Hunyuan3D-2mv** — only active 3D generator.
-- **Blender 5.2.x LTS** — 3D workbench.
-- **Minecraftize** — custom Blender conversion addon/core.
-- **mcschematic** — schematic writer.
-- **Axiom** — final import/edit/placement environment.
-- **Minecraft Java Edition** — target game.
+- **Blender 5.2.x LTS** — 3D preparation workbench.
+- **Minecraftize** — custom deterministic conversion core.
+- **mcschematic==11.4.4** — schematic writer.
+- **Axiom 5.3.0** — final client import/edit/placement environment.
+- **AxiomPaper 5.0.1+1.21.4 / Paper 1.21.4** — multiplayer placement path.
+- **Minecraft Java Edition 1.21.4** — current runtime target.
 
-No MCP or multi-model routing is part of the MVP.
+No second 3D provider, MCP/Axiom automation, or custom schematic format is part of the MVP.
 
 ## Product Flow
 
 ```text
 Flow 1  Repository Boot & Project Memory
-Flow 2  Reference Intake & Multi-view Recovery
-Flow 3  Hunyuan3D-2mv Shape Generation
-Flow 4  Blender Target Preparation
-Flow 5  Minecraftize Conversion
-Flow 6  Schematic Validation & Axiom Handoff
+Flow 2  T1/I1/I2 Reference Intake
+Flow 3  Hunyuan Shape Generation
+Flow 4  Representative Selection + Blender Target Preparation
+Flow 5  Minecraftize Conversion + Canonical Preview
+Flow 6  Schematic Validation + Axiom/Minecraft Handoff
 ```
 
-## Current Development Strategy
+## Pre-Runtime Verification
 
-Development is output-driven:
+Pre-Runtime Verification is preparation, **not application testing**.
+
+It checks:
 
 ```text
-prove .schem → Axiom
-→ prove Hunyuan3D-2mv → Blender
-→ full-block Minecraftize
-→ stairs
-→ slabs
-→ first real building
-→ add other block families only when a real case requires them
+canonical documentation and source pins
+session dependency/invalidation graph
+input + artifact digest integrity
+artifact schemas
+Blender target metadata contract
+Minecraftize pure/static contracts
+canonical preview path
+schematic writer round-trip
+acceptance evidence structure
 ```
 
-Do not build a sophisticated optimizer, custom renderer, model router, or automation layer before the simpler pipeline proves a specific need.
+It does not launch Hunyuan GPU generation, Blender conversion, Axiom, Paper, or Minecraft.
+
+The later **Runtime Acceptance Test** is the first point where those applications are actually executed.
+
+Current continuation: [docs/knowledge/next-action.md](docs/knowledge/next-action.md).
 
 ## Repository Map
 
 ```text
 .agents/skills/      reusable Development / Production judgment
-docs/foundation/     durable production-flow policy
-docs/knowledge/      continuation, ownership, decisions, evidence, backlog
-kits/lazy-builder/   production procedure + implementation owner
+docs/foundation/     durable product-flow policy
+docs/knowledge/      continuation, ownership, decisions, evidence
+kits/lazy-builder/   Flow 2–6 procedure + implementation
 workspace/           ignored local/external project-package convention
-tools/               repository verification
+tools/               deterministic repository/pre-runtime verification
 .github/             CI / ownership / promotion policy
 ```
 
 ## Working Principle
 
 ```text
-identify work mode
-→ find first wrong/changed owner
-→ select remote_github or local
-→ read only required context
-→ change the canonical owner
-→ run the proof that can falsify the changed claim
+recover current authority
+→ find first wrong owner
+→ change smallest canonical owner
+→ verify deterministic claims statically
+→ require matching runtime evidence for runtime claims
 → stop
 ```
 
 ## Status
 
-LazyBuilder is pre-MVP. Repository operating structure is established; executable product milestones are still pending runtime proof.
+LazyBuilder remains pre-MVP. The repository is being prepared to reach a clean **pre-runtime-ready** state before the first controlled runtime acceptance session.
 
 ## License
 

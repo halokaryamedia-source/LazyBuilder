@@ -8,8 +8,12 @@ from generate_text_reference import build_parser as build_text_parser, build_pla
 from generate_shape import build_parser as build_shape_parser, build_plan as build_shape_plan
 from runtime_contract import (
     HUNYUAN3D_MODEL,
+    HUNYUAN3D_MODEL_REVISION,
+    HUNYUAN3D_SOURCE_COMMIT,
+    HUNYUAN3D_SOURCE_REPO,
     HUNYUAN3D_SUBFOLDER,
     HUNYUANDIT_MODEL,
+    HUNYUANDIT_MODEL_REVISION,
     SHAPE_DEFAULTS,
     build_reference_prompt,
     normalize_text_prompt,
@@ -18,10 +22,14 @@ from runtime_contract import (
 
 
 class GenerationContractTests(unittest.TestCase):
-    def test_exact_model_ids(self) -> None:
+    def test_exact_model_ids_and_revisions(self) -> None:
         self.assertEqual(HUNYUANDIT_MODEL, "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled")
+        self.assertEqual(HUNYUANDIT_MODEL_REVISION, "527cf2ecce7c04021975938f8b0e44e35d2b1ed9")
         self.assertEqual(HUNYUAN3D_MODEL, "tencent/Hunyuan3D-2mv")
+        self.assertEqual(HUNYUAN3D_MODEL_REVISION, "08766051fa711c6ef5caf86b97e50304fdfcf0ef")
         self.assertEqual(HUNYUAN3D_SUBFOLDER, "hunyuan3d-dit-v2-mv")
+        self.assertEqual(HUNYUAN3D_SOURCE_REPO, "Tencent-Hunyuan/Hunyuan3D-2")
+        self.assertEqual(HUNYUAN3D_SOURCE_COMMIT, "f8db63096c8282cb27354314d896feba5ba6ff8a")
 
     def test_text_prompt_is_preserved_and_canonicalized(self) -> None:
         prompt = "  Victorian   station with a clock tower  "
@@ -69,13 +77,16 @@ class GenerationContractTests(unittest.TestCase):
             plan = build_text_plan(args)
             self.assertEqual(Path(plan["outputs"]["manifest"]).name, "manifest.json")
             self.assertEqual(plan["prompt"], "compact stone station")
+            self.assertEqual(plan["model_revision"], HUNYUANDIT_MODEL_REVISION)
 
-    def test_shape_manifest_contract(self) -> None:
+    def test_shape_manifest_contract_records_source_and_model_pin(self) -> None:
         args = build_shape_parser().parse_args(
             ["--front", "/tmp/front.png", "--output-dir", "/tmp/shape", "--dry-run"]
         )
         plan = build_shape_plan(args, require_exists=False)
         self.assertEqual(Path(plan["outputs"]["manifest"]).name, "manifest.json")
+        self.assertEqual(plan["model_revision"], HUNYUAN3D_MODEL_REVISION)
+        self.assertEqual(plan["source_code"]["commit"], HUNYUAN3D_SOURCE_COMMIT)
 
 
 if __name__ == "__main__":

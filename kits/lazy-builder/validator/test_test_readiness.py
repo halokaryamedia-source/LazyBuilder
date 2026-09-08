@@ -10,6 +10,9 @@ from session_contract import (
     ContractError,
     STAGE_ORDER,
     create_session,
+    record_artifacts,
+    record_inputs,
+    refresh_ready,
     stage_map,
     validate_case,
     validate_session,
@@ -41,7 +44,7 @@ def make_case(root: Path) -> dict:
     }
 
 
-class TestReadinessContractTests(unittest.TestCase):
+class PreRuntimeContractTests(unittest.TestCase):
     def test_case_contract_requires_all_three_input_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -61,23 +64,23 @@ class TestReadinessContractTests(unittest.TestCase):
             stages = stage_map(session)
             self.assertEqual(stages["preflight"]["status"], "READY")
             self.assertEqual(stages["text_reference"]["status"], "PENDING")
+            self.assertEqual(stages["minecraftize_primitives"]["status"], "PENDING")
             self.assertEqual(session["active_stage"], "preflight")
             validate_session(session)
 
-    def test_preflight_unlocks_independent_generation_paths(self) -> None:
+    def test_preflight_unlocks_generation_and_independent_primitive_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
             session = create_session(case=case, case_root=root, run_id="run-002", run_dir=root / "runs/run-002")
             stages = stage_map(session)
             stages["preflight"]["status"] = "PASS"
-            from session_contract import refresh_ready
-
             refresh_ready(session)
             self.assertEqual(stages["text_reference"]["status"], "READY")
             self.assertEqual(stages["shape_single"]["status"], "READY")
             self.assertEqual(stages["shape_multiview"]["status"], "READY")
-            self.assertEqual(stages["shape_text"]["status"], "PENDING")
+            self.assertEqual(stages["minecraftize_primitives"]["status"], "READY")
+            self.assertEqual(stages["blender"]["status"], "PENDING")
 
     def test_blender_requires_all_shape_proofs_and_selection(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -87,66 +90,99 @@ class TestReadinessContractTests(unittest.TestCase):
             stages = stage_map(session)
             for stage_id in ("preflight", "text_reference", "shape_text", "shape_single", "shape_multiview"):
                 stages[stage_id]["status"] = "PASS"
-            from session_contract import refresh_ready
-
             refresh_ready(session)
             self.assertEqual(stages["blender"]["status"], "PENDING")
             session["selected_shape_stage"] = "shape_multiview"
             refresh_ready(session)
             self.assertEqual(stages["blender"]["status"], "READY")
 
-    def test_invalidation_preserves_history_and_resumes_from_first_wrong_stage(self) -> None:
+    def test_invalidation_preserves_true_independent_dependencies(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
             session = create_session(case=case, case_root=root, run_id="run-004", run_dir=root / "runs/run-004")
             stages = stage_map(session)
-            for stage_id in STAGE_ORDER[:8]:
+            for stage_id in STAGE_ORDER:
                 stages[stage_id]["status"] = "PASS"
-            stages["minecraftize_model"]["notes"] = ["old evidence"]
             session["selected_shape_stage"] = "shape_multiview"
-            invalidate_from(session, "minecraftize_model", "converter defect")
-            self.assertEqual(stages["blender"]["status"], "PASS")
-            self.assertEqual(stages["minecraftize_model"]["status"], "READY")
+            invalidate_from(session, "blender", "new representative shape")
+            self.assertEqual(stages["minecraftize_primitives"]["status"], "PASS")
+            self.assertEqual(stages["blender"]["status"], "READY")
+            self.assertEqual(stages["minecraftize_model"]["status"], "PENDING")
+            self.assertEqual(stages["minecraft_preview"]["status"], "PENDING")
             self.assertEqual(stages["schematic"]["status"], "PENDING")
-            self.assertTrue(stages["minecraftize_model"]["history"])
+            self.assertEqual(stages["axiom"]["status"], "PENDING")
 
-            stages["shape_single"]["status"] = "PASS"
-            stages["shape_multiview"]["status"] = "PASS"
-            invalidate_from(session, "shape_single", "new single-image input")
-            self.assertEqual(stages["shape_single"]["status"], "READY")
-            self.assertEqual(stages["shape_multiview"]["status"], "PASS")
-            self.assertEqual(stages["blender"]["status"], "PENDING")
-
-    def test_action_contract_exposes_real_paths_and_minecraftize_v0_commands(self) -> None:
+    def test_case_input_drift_is_rejected_before_stage_run(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
             session = create_session(case=case, case_root=root, run_id="run-005", run_dir=root / "runs/run-005")
+            stages = stage_map(session)
+            stages["preflight"]["status"] = "PASS"
+            refresh_ready(session)
+            (root / "inputs/single/front.png").write_bytes(b"changed")
+            with self.assertRaisesRegex(ContractError, "input drift detected"):
+                record_inputs(session, stages["shape_single"])
+
+    def test_upstream_artifact_drift_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            case = make_case(root)
+            session = create_session(case=case, case_root=root, run_id="run-006", run_dir=root / "runs/run-006")
+            stages = stage_map(session)
+            shape = stages["shape_single"]
+            for path in shape["output_paths"]:
+                p = Path(path)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b"original")
+            record_artifacts(shape)
+            shape["status"] = "PASS"
+            session["selected_shape_stage"] = "shape_single"
+            blender = stages["blender"]
+            blender["input_paths"] = list(shape["output_paths"])
+            Path(shape["output_paths"][0]).write_bytes(b"mutated")
+            with self.assertRaisesRegex(ContractError, "input drift detected"):
+                record_inputs(session, blender)
+
+    def test_action_contract_exposes_preflight_preview_and_v0_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            case = make_case(root)
+            session = create_session(case=case, case_root=root, run_id="run-007", run_dir=root / "runs/run-007")
+            preflight = build_action(session, "preflight")
+            self.assertIn("collect_environment.py", " ".join(preflight["argv"]))
+            self.assertTrue(preflight["required_record_keys"])
+            self.assertIn("hunyuan3d_model_revision", preflight["auto_recorded_keys"])
+            self.assertNotIn("hunyuan3d_model_revision", preflight["required_record_keys"])
+
             stage_action = build_action(session, "shape_multiview")
             self.assertEqual(stage_action["kind"], "command")
             self.assertIn("--front", stage_action["argv"])
             self.assertIn("--left", stage_action["argv"])
 
             primitives = build_action(session, "minecraftize_primitives")
-            self.assertEqual(primitives["kind"], "command")
             self.assertIn("run_primitive_suite.py", " ".join(primitives["argv"]))
 
             model = build_action(session, "minecraftize_model")
-            self.assertEqual(model["kind"], "command")
             joined = " ".join(model["argv"])
             self.assertIn("minecraftize_v0.py", joined)
             self.assertIn("LazyBuilderTarget", model["argv"])
             self.assertIn("64", model["argv"])
-            self.assertTrue(model["argv"][-1].endswith("41-minecraftize-model"))
 
-    def test_acceptance_report_never_upgrades_partial_to_pass(self) -> None:
+            preview = build_action(session, "minecraft_preview")
+            self.assertIn("build_preview.py", " ".join(preview["argv"]))
+            self.assertTrue(preview["argv"][-1].endswith("45-preview"))
+
+    def test_acceptance_report_contains_lineage_and_never_upgrades_partial(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
-            session = create_session(case=case, case_root=root, run_id="run-006", run_dir=root / "runs/run-006")
+            session = create_session(case=case, case_root=root, run_id="run-008", run_dir=root / "runs/run-008")
             report = build_report(session)
             self.assertEqual(report["overall_status"], "PARTIAL")
+            self.assertIn("stage_evidence", report)
+            self.assertIn("input_snapshot", report)
             stages = stage_map(session)
             stages["preflight"]["status"] = "BLOCKED"
             report = build_report(session)

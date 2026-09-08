@@ -34,6 +34,7 @@ def export_blocks(blocks_path: Path, output_dir: Path, *, name: str = "build") -
     import mcschematic
 
     payload = read_blocks_json(blocks_path)
+    source_sha = sha256_file(blocks_path)
     output_dir.mkdir(parents=True, exist_ok=True)
     schematic = mcschematic.MCSchematic()
     for block in payload["blocks"]:
@@ -65,6 +66,7 @@ def export_blocks(blocks_path: Path, output_dir: Path, *, name: str = "build") -
         "sponge_version": 2,
         "data_version": DATA_VERSION,
         "source_blocks": str(blocks_path.resolve()),
+        "source_sha256": source_sha,
         "source_block_count": payload["block_count"],
         "source_bounds": payload["bounds"],
         "output": str(schem_path.resolve()),

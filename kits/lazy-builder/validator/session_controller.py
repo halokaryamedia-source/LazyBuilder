@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from artifact_validation import ArtifactValidationError, REQUIRED_PREFLIGHT_DECLARED, validate_stage_artifacts
+from collect_environment import AUTO_DECLARED
 from session_contract import (
     ContractError,
     STAGE_DEFINITIONS,
@@ -70,7 +72,7 @@ def _transition(
     if status not in ALLOWED_TRANSITIONS.get(current, set()):
         raise ContractError(f"invalid stage transition {stage_id}: {current} -> {status}")
     if status == "RUNNING":
-        record_inputs(stage)
+        record_inputs(session, stage)
         stage["started_at"] = utc_now()
         stage["finished_at"] = None
         stage["failure_class"] = None
@@ -78,6 +80,10 @@ def _transition(
         stage["finished_at"] = utc_now()
     if status == "PASS":
         record_artifacts(stage)
+        try:
+            validate_stage_artifacts(stage_id, stage["output_paths"])
+        except ArtifactValidationError as exc:
+            raise ContractError(f"artifact contract failed for {stage_id}: {exc}") from exc
     if failure_class:
         stage["failure_class"] = failure_class
     if notes:
@@ -145,7 +151,19 @@ def build_action(session: dict[str, Any], stage_id: str) -> dict[str, Any]:
         "expected_outputs": _stage(session, stage_id)["output_paths"],
     }
     if stage_id == "preflight":
-        return {**common, "kind": "manual_record", "instruction": "Record exact runtime environment into environment.json without changing packages or server policy."}
+        return {
+            **common,
+            "kind": "command_plus_declared_facts",
+            "argv": [
+                "python",
+                str(REPO_ROOT / "kits/lazy-builder/validator/collect_environment.py"),
+                "--output",
+                str(output_dir / "environment.json"),
+            ],
+            "required_record_keys": sorted(REQUIRED_PREFLIGHT_DECLARED - set(AUTO_DECLARED)),
+            "auto_recorded_keys": sorted(AUTO_DECLARED),
+            "instruction": "Capture automatic environment metadata and append every required --record key=value fact. This does not launch Hunyuan, Blender, Axiom, or Minecraft runtime.",
+        }
     if stage_id == "text_reference":
         prompt = resolve_case_input(session, case["inputs"]["T1"]["prompt_path"])
         return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/generation/generate_text_reference.py"), "--prompt-file", str(prompt), "--output-dir", str(output_dir)], "completion": "mark APPROVAL_REQUIRED after generation; approve only after visual review"}
@@ -166,16 +184,26 @@ def build_action(session: dict[str, Any], stage_id: str) -> dict[str, Any]:
         if selected not in SHAPE_STAGES:
             return {**common, "kind": "blocked", "blocker": "SELECT_REPRESENTATIVE_SHAPE_FIRST"}
         source = Path(_stage(session, selected)["output_paths"][0])
-        return {**common, "kind": "manual_application", "source_glb": str(source), "target_width_blocks": case["target"]["target_width_blocks"], "target_object_name": "LazyBuilderTarget", "instruction": "Open the selected GLB in Blender 5.2.x LTS, normalize per TARGET-MODEL.md, preserve raw source separately, name the prepared mesh LazyBuilderTarget, then save target.blend and target.json."}
+        return {
+            **common,
+            "kind": "manual_application",
+            "source_glb": str(source),
+            "target_width_blocks": case["target"]["target_width_blocks"],
+            "target_object_name": "LazyBuilderTarget",
+            "instruction": "Open the selected GLB in Blender 5.2.x LTS, normalize per TARGET-MODEL.md, preserve raw source separately, name the prepared mesh LazyBuilderTarget, save target.blend, then generate target.json with write_target_metadata.py.",
+            "metadata_helper": str(REPO_ROOT / "kits/lazy-builder/blender/write_target_metadata.py"),
+        }
     if stage_id == "minecraftize_primitives":
-        return {**common, "kind": "command", "argv": ["blender", "--background", "--python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/run_primitive_suite.py"), "--", "--output-dir", str(output_dir)], "completion": "V0 full-block primitive must PASS; stair/slab remain SKIPPED until implemented"}
+        return {**common, "kind": "command", "argv": ["blender", "--background", "--python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/run_primitive_suite.py"), "--", "--output-dir", str(output_dir)], "completion": "V0 boundary and true-interior full-block primitives must PASS; stair/slab remain SKIPPED"}
     if stage_id == "minecraftize_model":
         return {**common, "kind": "command", "argv": ["blender", str(run_dir / "30-blender/target.blend"), "--background", "--python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/minecraftize_v0.py"), "--", "--object-name", "LazyBuilderTarget", "--target-width-blocks", str(case["target"]["target_width_blocks"]), "--output-dir", str(output_dir)]}
+    if stage_id == "minecraft_preview":
+        return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/minecraftize/build_preview.py"), "--blocks", str(run_dir / "41-minecraftize-model/blocks.json"), "--output-dir", str(output_dir)]}
     if stage_id == "schematic":
         blocks_path = run_dir / "41-minecraftize-model/blocks.json"
         return {**common, "kind": "command", "argv": ["python", str(REPO_ROOT / "kits/lazy-builder/schematic/export_blocks.py"), "--blocks", str(blocks_path), "--output-dir", str(output_dir)]}
     if stage_id == "axiom":
-        return {**common, "kind": "manual_application", "schematic": str(run_dir / "50-schematic/build.schem"), "instruction": "Use VALIDATION.md: import exact build.schem in Axiom, verify Clipboard, place through AxiomPaper/Paper, and record runtime.json."}
+        return {**common, "kind": "manual_application", "schematic": str(run_dir / "50-schematic/build.schem"), "instruction": "Use VALIDATION.md: import exact build.schem in Axiom, verify Clipboard, place through AxiomPaper/Paper, verify Minecraft world/visual state, and record runtime.json."}
     raise ContractError(f"no action definition for stage: {stage_id}")
 
 
@@ -197,7 +225,13 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     session = _load_session(_session_path(args))
-    summary = {"run_id": session["run_id"], "status": session["status"], "active_stage": session["active_stage"], "selected_shape_stage": session.get("selected_shape_stage"), "stages": [{"id": s["id"], "status": s["status"]} for s in session["stages"]]}
+    summary = {
+        "run_id": session["run_id"],
+        "status": session["status"],
+        "active_stage": session["active_stage"],
+        "selected_shape_stage": session.get("selected_shape_stage"),
+        "stages": [{"id": s["id"], "status": s["status"]} for s in session["stages"]],
+    }
     print(json.dumps(summary, indent=2))
     return 0
 
@@ -229,6 +263,9 @@ def cmd_select(args: argparse.Namespace) -> int:
     stage = _stage(session, args.stage)
     if stage["status"] != "PASS":
         raise ContractError(f"cannot select {args.stage}; status is {stage['status']}")
+    previous = session.get("selected_shape_stage")
+    if previous is not None and previous != args.stage:
+        invalidate_from(session, "blender", f"representative shape changed from {previous} to {args.stage}")
     session["selected_shape_stage"] = args.stage
     session.setdefault("artifacts", {})["selected_shape"] = stage["output_paths"][0]
     blender = _stage(session, "blender")
@@ -283,6 +320,7 @@ def main() -> int:
         return args.func(args)
     except ContractError as exc:
         raise SystemExit(f"error: {exc}") from exc
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

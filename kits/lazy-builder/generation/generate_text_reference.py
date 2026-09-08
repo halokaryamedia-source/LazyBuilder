@@ -8,9 +8,11 @@ from pathlib import Path
 
 from runtime_contract import (
     HUNYUANDIT_MODEL,
+    HUNYUANDIT_MODEL_REVISION,
     TEXT_DEFAULTS,
     TEXT_NEGATIVE_PROMPT,
     build_reference_prompt,
+    sha256_file,
     write_json,
 )
 
@@ -56,8 +58,10 @@ def build_plan(args: argparse.Namespace, *, require_exists: bool = True) -> dict
     prompt, prompt_file = resolve_prompt(args, require_exists=require_exists)
     output_dir = Path(args.output_dir).expanduser()
     return {
+        "schema_version": 1,
         "stage": "text_reference",
         "model": HUNYUANDIT_MODEL,
+        "model_revision": HUNYUANDIT_MODEL_REVISION,
         "prompt": prompt.strip(),
         "prompt_file": prompt_file,
         "resolved_prompt": build_reference_prompt(prompt),
@@ -94,6 +98,7 @@ def run(args: argparse.Namespace) -> int:
 
     pipe = AutoPipelineForText2Image.from_pretrained(
         HUNYUANDIT_MODEL,
+        revision=HUNYUANDIT_MODEL_REVISION,
         torch_dtype=torch.float16,
         enable_pag=True,
         pag_applied_layers=["blocks.(16|17|18|19)"],
@@ -121,6 +126,7 @@ def run(args: argparse.Namespace) -> int:
 
     manifest = dict(plan)
     manifest["status"] = "GENERATED_REFERENCE_REVIEW_REQUIRED"
+    manifest["output_sha256"] = sha256_file(reference_path)
     write_json(manifest_path, manifest)
 
     del image

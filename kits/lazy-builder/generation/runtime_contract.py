@@ -7,7 +7,12 @@ from typing import Mapping
 
 HUNYUAN3D_MODEL = "tencent/Hunyuan3D-2mv"
 HUNYUAN3D_SUBFOLDER = "hunyuan3d-dit-v2-mv"
+HUNYUAN3D_MODEL_REVISION = "08766051fa711c6ef5caf86b97e50304fdfcf0ef"
+HUNYUAN3D_SOURCE_REPO = "Tencent-Hunyuan/Hunyuan3D-2"
+HUNYUAN3D_SOURCE_COMMIT = "f8db63096c8282cb27354314d896feba5ba6ff8a"
+
 HUNYUANDIT_MODEL = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled"
+HUNYUANDIT_MODEL_REVISION = "527cf2ecce7c04021975938f8b0e44e35d2b1ed9"
 
 VIEW_NAMES = ("front", "right", "back", "left")
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}

@@ -3,20 +3,19 @@
 ## Proof layers
 
 ```text
-1 repository/static contract
+0 Pre-Runtime Verification (static/contracts only)
+1 generation/runtime environment capture
 2 conversion primitive correctness
-3 schematic writer / schema compatibility
-4 Axiom client import + Clipboard
-5 AxiomPaper handshake / placement permission
-6 Minecraft world placement
-7 visual fidelity
+3 representative Minecraftize + canonical preview
+4 schematic writer / schema compatibility
+5 Axiom client import + Clipboard
+6 AxiomPaper handshake / placement permission
+7 Minecraft world placement + visual fidelity
 ```
 
-A lower layer does not prove a higher layer.
+A lower layer never proves a higher layer.
 
 ## Current audited runtime target
-
-Use the exact supplied baseline for M1:
 
 ```text
 Minecraft Java Edition 1.21.4
@@ -24,255 +23,215 @@ Minecraft Java Edition 1.21.4
 CLIENT
 Fabric
 Axiom 5.3.0
-sha256 8026fdb448686cd6db69e69c695fa17f54508f801ddddb3ffeb850b79b04eae5
 Axiom API family 9
 
 SERVER
 Paper 1.21.4
 AxiomPaper 5.0.1+1.21.4
-sha256 cecafb3e1beba81245ee5bcfc3251052035526b99bb111127b968b09c92d86c8
 Axiom API family 9
+
+SCHEMATIC
+Sponge Version 2
+DataVersion 4189
 ```
 
-Do not use supplied AxiomPaper 4.0.4 for this test; it is API family 8.
+Do not use supplied AxiomPaper 4.0.4 for this baseline; it is API family 8.
 
-Paper 5.0.4 is only an upgrade candidate if an actual slow-update/permission problem appears or the user explicitly changes the baseline.
+AxiomPaper 5.0.4+1.21.4 remains only a conditional upgrade candidate for a measured matching issue or explicit user decision.
 
-## Current M1 status
+## Current evidence boundary
 
 ```text
-Layer 3 writer/round-trip        → PASS
-Axiom binary integration audit   → PASS (research/static)
-Layer 4 Axiom import             → LOCAL RUNTIME PROOF REQUIRED
-Layer 5 Paper handshake/permission → LOCAL RUNTIME PROOF REQUIRED
-Layer 6 Minecraft placement      → LOCAL RUNTIME PROOF REQUIRED
-Layer 7 visual state             → LOCAL RUNTIME PROOF REQUIRED
+Pre-Runtime repository/contracts      → PASS only when CI is green
+M1 writer / BlockState round-trip      → PASS
+Axiom binary integration audit         → PASS (research/static)
+Hunyuan runtime                        → LOCAL RUNTIME PROOF REQUIRED
+Blender/Minecraftize runtime           → LOCAL RUNTIME PROOF REQUIRED
+Axiom import / Clipboard               → LOCAL RUNTIME PROOF REQUIRED
+Paper handshake / placement            → LOCAL RUNTIME PROOF REQUIRED
+Minecraft placement / visual fidelity  → LOCAL RUNTIME PROOF REQUIRED
 ```
 
-Executable writer evidence:
+## Preflight capture
 
-```text
-workflow: M1 Schematic Smoke
-run: 34215078021
-result: PASS
-artifact: lazybuilder-m1-schematic-je-1-21-4
-artifact id: 10051411457
-fixture target: Sponge V2 / JE_1_21_4 / DataVersion 4189
+Before future runtime, use:
+
+```bash
+python kits/lazy-builder/validator/collect_environment.py \
+  --output <run>/00-preflight/environment.json \
+  --record key=value \
+  ...
 ```
 
-The writer fixture saves and reloads exact BlockStates for:
+The session action reports the exact required record keys. They cover:
 
 ```text
-minecraft:stone_bricks
-minecraft:stone_brick_stairs[facing=north,half=bottom,shape=straight,waterlogged=false]
-minecraft:stone_slab[type=top,waterlogged=false]
-```
-
-## M1 runtime preflight
-
-Before import, record the actual environment:
-
-```text
+Blender version
+GPU / VRAM / CUDA driver/runtime
 Minecraft client version
-Fabric Loader version
-Fabric API version
+Fabric Loader / Fabric API
 Axiom client version + SHA-256
 Paper version/build
 AxiomPaper version + SHA-256
-OP or permission-plugin setup
-ViaVersion installed? yes/no
-WorldGuard installed? yes/no
-PlotSquared installed? yes/no
-CoreProtect installed? yes/no
-Axiom commercial license / whitelist state as applicable
+permission mode
+ViaVersion / WorldGuard / PlotSquared / CoreProtect state
+Axiom license/whitelist state as applicable
 ```
 
-Unknown items are allowed before the test, but they must not be guessed in the final evidence.
+The collector itself does not launch Hunyuan, Blender, Axiom, or Minecraft.
+
+Pinned generation identities (`hunyuan3d_source_commit`, `hunyuan3d_model_revision`, `hunyuandit_model_revision`) are auto-recorded from the repository contract; machine-specific facts remain explicit.
+
+A preflight stage becomes PASS only after `artifact_validation.py` confirms required fields are present.
+
+## Generation acceptance
+
+T1/I1/I2 generation must use the exact source/model pins in `../generation/ENVIRONMENT.md`.
+
+Every generation output must preserve manifest + SHA-256 lineage.
+
+T1 additionally requires explicit user approval of `reference_front.png` before shape generation.
+
+## Blender acceptance
+
+Selected representative GLB:
+
+```text
+→ manual Blender preparation
+→ LazyBuilderTarget
+→ target.blend
+→ target.json via write_target_metadata.py
+```
+
+`target.json` must bind source/target hashes, Blender version, target width/bounds, orientation, and cleanup notes.
+
+## Minecraftize acceptance
+
+Primitive runtime uses the actual Blender V0 converter and includes:
+
+```text
+3×2×2 boundary case
+5×5×5 true-interior case
+```
+
+The interior case must not be satisfiable entirely by near-surface occupancy.
+
+V0 feature status remains:
+
+```text
+full_block → SUPPORTED
+stair      → SKIPPED
+slab       → SKIPPED
+```
+
+Representative conversion then emits canonical `blocks.json` + report.
+
+## Canonical preview
+
+Before schematic export, generate:
+
+```text
+41-minecraftize-model/blocks.json
+→ build_preview.py
+→ 45-preview/preview.svg + manifest.json
+```
+
+This preview consumes the exact block model used by export. It is not a second conversion path.
+
+Human inspection may compare the preview against the prepared mesh/reference, but static preview generation alone is not visual-fidelity PASS.
+
+## Schematic writer acceptance
+
+```text
+canonical blocks.json
+→ mcschematic==11.4.4
+→ Sponge V2 / DataVersion 4189 build.schem
+→ reload same file
+→ exact BlockState round-trip
+```
+
+If `blocks.json` is correct and `.schem` is wrong, fix the exporter. If `blocks.json` is wrong, fix Minecraftize.
 
 ## Axiom session preflight
 
-For the first controlled multiplayer proof use either:
+For the first controlled multiplayer proof use either OP or the expected Axiom permission setup. After changing permission/OP state, reconnect as required by the plugin behavior.
 
-```text
-OP
-```
-
-or:
-
-```text
-axiom.default
-+ disconnect/reconnect
-```
-
-The official plugin README requires reconnect after changing OP/permission state.
-
-If Axiom is not active, use:
+If Axiom is not active:
 
 ```text
 /whynoaxiom
-```
-
-and optionally:
-
-```text
 /axiomhandshake
 ```
 
-before changing files or exporter code.
+The import menu requires the server-provided `CAN_IMPORT_BLOCKS` capability / `axiom.can_import_blocks` permission.
 
-The import menu itself requires the server-provided `CAN_IMPORT_BLOCKS` capability/`axiom.can_import_blocks` permission.
+Do not change exporter/model versions before identifying the first failing owner.
 
-## Exact M1 runtime acceptance
+## Exact Axiom/Paper/Minecraft runtime checks
 
-Use the **exact generated artifact**, not a hand-created substitute:
+For the exact generated `build.schem`:
 
-`lazybuilder_m1_smoke.schem`
+1. import in Axiom 5.3.0 with no unknown-format/version error;
+2. verify Clipboard content;
+3. create Placement without first-proof rotation/scale/flip;
+4. verify server accepts placement through AxiomPaper/Paper;
+5. verify expected world structure and block states;
+6. compare Minecraft result to canonical preview/prepared target/reference;
+7. write `runtime.json` only from actual observations.
 
-### A. Client file import
-
-1. open Axiom Editor;
-2. File → Import Schematic;
-3. choose the exact M1 `.schem`;
-4. confirm there is no unknown-format/unsupported-version error.
-
-Expected current format:
-
-```text
-Sponge Version 2
-DataVersion 4189
-3 × 1 × 1
-```
-
-### B. Clipboard
-
-Confirm the imported schematic appears in Axiom Clipboard.
-
-Because Axiom 5.3.0 centers Sponge imports by dimensions, the expected local X positions for the 3×1×1 fixture are approximately:
+`runtime.json` can validate as PASS only when these checks are all PASS:
 
 ```text
--1, 0, +1
+import
+clipboard
+placement
+minecraft_world
+visual_state
 ```
-
-Do not require `WEOffset`/`Offset` metadata to control the pivot.
-
-### C. Placement preview
-
-Create a Placement using Clipboard paste.
-
-For M1:
-
-- use an empty test area;
-- do not rotate/scale/flip before the first proof;
-- keep placement semantics otherwise default unless a setting visibly interferes;
-- note the state of `Paste Air` if the test is not in an empty area.
-
-### D. Paper/world placement
-
-Confirm the placement is accepted by the server and appears in the world.
-
-Expected blocks:
-
-- full stone-bricks block;
-- stone-brick stair facing north, bottom half, straight shape;
-- top stone slab.
-
-M1 is end-to-end PASS only when client import, Clipboard, Paper placement and state/orientation all pass.
 
 ## Failure routing
 
-Diagnose the first wrong owner:
-
 ```text
-Import Schematic menu disabled
+Import Schematic disabled
 → permission/session: axiom.can_import_blocks / handshake
 
 unknown format / unsupported Sponge Version
-→ schematic schema compatibility
+→ schematic compatibility
 
-file imports but Clipboard empty
+file imports but Clipboard wrong
 → client parsing/content compatibility
 
 Clipboard correct but Placement cannot start
 → BUILD_SECTION permission / client restrictions
 
 Placement starts but server rejects/does nothing
-→ AxiomPaper handshake, world restriction, region integration, rate/transport
+→ AxiomPaper handshake/world/region/transport
 
-some sections place and others do not
-→ region/section permissions, world height, server restrictions
-
-specific block/state missing
-→ disallowed-blocks or BlockState compatibility
-
-blocks place but stair/slab orientation wrong
+block/state/orientation wrong with correct blocks.json
 → exporter / BlockState owner
 
-block entity data missing later
-→ axiom.build.nbt + BlockEntity test owner
+blocks.json already wrong
+→ Minecraftize owner
+
+preview wrong but blocks.json correct
+→ preview owner
 
 slow updates with correct permissions
-→ measure first; then evaluate AxiomPaper 5.0.4+1.21.4 candidate
+→ measure first, then evaluate AxiomPaper 5.0.4+1.21.4
 ```
 
-Do not change `mcschematic`, packet limits, or Axiom versions before the failure class is known.
+## Server policy/config boundary
 
-## Server policy/config checks
+Do not pre-tune packet/rate limits. Check existing world/region/disallowed-block policy only after an observed failure.
 
-The supplied AxiomPaper 5.0.1 defaults should remain unchanged for M1.
+Do not enable broad payload settings merely to make a first proof pass.
 
-If placement is unexpectedly blocked, check:
+## Later scope
 
-```text
-whitelist-world-regex
-blacklist-world-regex
-disallowed-blocks
-WorldGuard/PlotSquared bounds
-AxiomModifyWorldEvent integrations
-```
-
-Do not enable `allow-large-payload-for-all-packets` for M1.
-
-## Scale/performance validation — later
-
-Do not infer a production structure-size limit from the packet-size config alone.
-
-After M1 and Minecraftize V0 work, benchmark representative builds with:
-
-```text
-block count
-occupied chunk sections
-schematic dimensions
-import time
-Clipboard responsiveness
-placement preview responsiveness
-server placement time
-chunk/light update behavior
-memory/VRAM impact where relevant
-```
-
-Only then consider rate/packet/plugin tuning.
-
-## NBT/entity validation — later
-
-Normal entities are not part of the current LazyBuilder Sponge integration contract.
-
-BlockEntity/NBT proof requires a separate fixture because:
-
-- Axiom client parsing rules differ from normal blocks;
-- Paper placement requires `axiom.build.nbt`;
-- privileged block NBT can require OP level.
-
-Do not mix NBT testing into basic full/stair/slab M1.
-
-## Later conversion acceptance
-
-- full-block V0: end-to-end model→schem path works;
-- stair: primitive state/facing/half tests plus visual improvement on slope;
-- slab: top/bottom/mixed primitive tests;
-- real building: silhouette/proportion and block-shape composition are acceptable relative to reference at intended target scale.
+NBT/entities, broad block families, production-scale benchmarking, Fast/Turbo, and Axiom automation remain outside V0 until evidence requires them.
 
 ## Evidence language
 
-Use `LOCAL RUNTIME PROOF REQUIRED` when repository/audit/CI state is ready but the exact Axiom/Paper/Minecraft execution has not been performed.
+Use `LOCAL RUNTIME PROOF REQUIRED` whenever the repository is prepared but the exact application execution has not happened.
 
-Do not claim PASS from static binary inspection, documentation, screenshots of a manually altered result, or downstream polish when the exact target artifact was not executed.
+Do not claim runtime PASS from CI, binary inspection, a hand-altered screenshot, or a manually substituted artifact.

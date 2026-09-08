@@ -4,9 +4,19 @@
 
 Settle material reference evidence and target constraints before Hunyuan3D shape generation.
 
+## Canonical input modes
+
+```text
+T1 TEXT
+I1 SINGLE IMAGE
+I2 MULTIVIEW (front/right/back/left)
+```
+
+The three modes are independent input paths. None silently redefines another.
+
 ## Image mode
 
-Preferred set:
+Preferred multiview set:
 
 ```text
 front.png
@@ -15,7 +25,7 @@ back.png
 left.png
 ```
 
-One to four views are allowed. More views are not automatically better; consistent views are more valuable than many conflicting views.
+One named canonical image is valid for I1. Four consistent views are required for the first controlled I2 comparison case.
 
 Check:
 
@@ -39,18 +49,18 @@ Expected:
 
 ```text
 reference_front.png
-text_reference.json
+manifest.json
 ```
 
-The reference is generated evidence, not authority. Review it against the user's intent before using it for shape generation.
+The manifest records the pinned HunyuanDiT model revision and output SHA-256.
 
-Required gate:
+The generated reference is evidence, not authority. Required gate:
 
 ```text
 text intent
 → reference_front.png
 → review / approval
-→ generation
+→ Hunyuan3D-2mv shape generation
 ```
 
 Do not independently generate front/right/back/left from the same text for MVP; separate image generations can drift and create contradictory 3D conditioning.
@@ -61,6 +71,7 @@ Hand Flow 3 only:
 
 - approved/supplied named images;
 - known dimensions or target Minecraft scale when material;
-- only shape constraints that affect generation.
+- shape constraints that affect generation;
+- authoritative input paths retained so the session can lock SHA-256.
 
 Do not create a broad project-metadata system before a real use case requires it.

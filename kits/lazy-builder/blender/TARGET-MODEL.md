@@ -2,7 +2,7 @@
 
 ## Role
 
-Blender prepares the generated mesh to be sampled by Minecraftize. It is not the final asset pipeline and does not need conventional game/film-quality retopology.
+Blender prepares the selected generated mesh to be sampled by Minecraftize. It is not the final asset pipeline and does not need conventional game/film-quality retopology.
 
 ## Canonical prepared target
 
@@ -28,13 +28,55 @@ Scale is driven by the explicit target dimension from the acceptance case, initi
 
 ## Required preparation
 
-- import GLB successfully;
+- import the selected GLB successfully;
+- preserve the source object/collection for recovery;
 - correct orientation;
 - establish intentional target width/scale;
-- remove severe floating/noise geometry that would produce false blocks;
+- remove severe floating/noise geometry that would create false blocks;
 - repair only major form errors that materially harm conversion;
-- preserve target silhouette/depth needed by Minecraftize;
-- save the prepared scene as `target.blend` and stage metadata as `target.json`.
+- preserve silhouette/depth needed by Minecraftize;
+- save the prepared scene as `target.blend`;
+- create canonical `target.json` with `write_target_metadata.py`.
+
+## Canonical target.json
+
+Minimum structure:
+
+```json
+{
+  "schema_version": 1,
+  "stage": "blender",
+  "status": "PREPARED_TARGET_RUNTIME_CONVERSION_PENDING",
+  "source": {
+    "path": ".../model.glb",
+    "sha256": "...",
+    "selected_shape_stage": "shape_multiview"
+  },
+  "blender": {
+    "version": "5.2.x",
+    "target_object_name": "LazyBuilderTarget"
+  },
+  "target": {
+    "target_width_blocks": 64,
+    "bounds_world": {"min": [0, 0, 0], "max": [1, 1, 1]}
+  },
+  "orientation": {
+    "minecraft_x": "blender_x",
+    "minecraft_y": "blender_z",
+    "minecraft_z": "-blender_y"
+  },
+  "cleanup": {"notes": []},
+  "target_blend_sha256": "..."
+}
+```
+
+Use:
+
+```bash
+python kits/lazy-builder/blender/write_target_metadata.py --help
+```
+
+after manual preparation to avoid hand-copying hashes/orientation fields.
 
 ## Avoid
 
@@ -44,9 +86,7 @@ Scale is driven by the explicit target dimension from the acceptance case, initi
 - micro-detail invisible at target Minecraft scale;
 - changing shape merely to hide a converter weakness without recording that tradeoff.
 
-## Readiness test
-
-Ask:
+## Readiness question
 
 > If Minecraftize samples `LazyBuilderTarget` now, are remaining errors cheaper to solve in block conversion than by further Blender cleanup?
 
@@ -54,4 +94,12 @@ If yes, continue.
 
 ## Preview expectation
 
-Minecraftize should eventually support enough Blender preview to compare original mesh, Minecraft block result, and overlay. Preview and schematic export must derive from the same canonical `blocks.json` rather than separate conversion paths.
+Canonical preview is generated **after Minecraftize** from the same `blocks.json` that feeds schematic export:
+
+```text
+blocks.json
+├─ build_preview.py → preview.svg
+└─ export_blocks.py → build.schem
+```
+
+There is no independent preview conversion path.

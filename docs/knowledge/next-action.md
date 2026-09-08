@@ -2,72 +2,96 @@
 
 ## Current Status
 
-`E2E_HARNESS_IMPLEMENTED_FIXTURE_PACK_REQUIRED_RUNTIME_DEFERRED`
+`PRE_RUNTIME_SYSTEM_READY_RUNTIME_NOT_STARTED`
 
-The user explicitly wants the complete pipeline prepared before local runtime testing. Do not launch Hunyuan GPU generation, Blender conversion, Axiom, Paper, or Minecraft yet.
+The user explicitly wants the system prepared as completely as practical **before** any real application/runtime test.
 
-## Completed readiness implementation
+Do not start runtime.
 
-```text
-text/single/multiview generation runners
-→ session manifest + digest/resume controller
-→ Blender target contract
-→ Minecraftize canonical blocks.json
-→ Blender-native Minecraftize V0 full-block entrypoint
-→ actual-engine primitive suite entrypoint
-→ general blocks.json → .schem exporter
-→ Axiom/Paper/Minecraft acceptance contract
-→ consolidated acceptance report
-→ static dry-run/CI contract
-```
-
-Minecraftize V0 runtime design:
+## Completed system-side pre-runtime preparation
 
 ```text
-LazyBuilderTarget
-→ Blender evaluated world mesh
-→ mathutils BVHTree
-→ pitch from target_width_blocks
-→ deterministic occupancy
-→ full-block blocks.json + report.json
+canonical T1/I1/I2 flow synchronized
+pinned HunyuanDiT model revision
+pinned Hunyuan3D source commit + Hunyuan3D-2mv model revision
+generation environment contract
+session dependency/resume graph
+case-input + upstream-artifact SHA-256 drift protection
+representative-shape downstream invalidation
+true-independent Minecraftize primitive dependency
+Blender target.json contract + metadata helper
+stage artifact schema validation
+Minecraftize V0 full-block entrypoint
+primitive suite definition with boundary + true-interior cases
+canonical blocks.json model
+canonical SVG preview from the exact blocks.json
+blocks.json → Sponge .schem writer/round-trip
+preflight environment collector
+consolidated acceptance evidence/lineage report
+static Pre-Runtime Verify CI contract
 ```
 
-Stair/slab remain intentionally unimplemented and must be reported `SKIPPED` during V0 acceptance.
+## Explicit evidence boundary
 
-## Only remaining preparation before local acceptance
+Prepared/implemented does not mean runtime-proven.
 
-Select/populate one real fixture package following `kits/lazy-builder/validator/FIXTURE-PACK.md`:
+Still `LOCAL RUNTIME PROOF REQUIRED` later:
+
+```text
+HunyuanDiT GPU generation
+Hunyuan3D-2mv GPU generation
+GLB quality / import
+Blender LazyBuilderTarget preparation in the actual application
+Minecraftize primitive execution inside Blender
+representative Minecraftize conversion
+Axiom import / Clipboard
+AxiomPaper / Paper placement
+Minecraft final visual fidelity
+```
+
+## Remaining content before a future Runtime Acceptance session
+
+Only user-selected acceptance input content is not repository architecture:
 
 ```text
 T1 prompt
 I1 front image
-I2 front/right/back/left images
+I2 front/right/back/left consistent images
 intentional target_width_blocks
 ```
 
-The same bounded object/build should be represented across T1/I1/I2.
+Use `kits/lazy-builder/validator/FIXTURE-PACK.md` when the user later chooses the acceptance object/build.
 
-Use `prepare_case.py` to scaffold the ignored workspace. This is preparation only and must not start runtime.
+Do not invent or populate that real fixture without the user's reference/input decision.
 
-## When the user later explicitly starts testing
+## When the user explicitly starts Runtime Acceptance
 
-Run one resumable acceptance session:
+Run one resumable session:
 
 ```text
-preflight once
+preflight
 → T1/I1/I2 generation
-→ select representative GLB
-→ Blender LazyBuilderTarget
-→ Minecraftize primitive V0
-→ Minecraftize representative model
+→ representative selection
+→ Blender target + metadata
+→ Minecraftize primitive suite
+→ representative Minecraftize model
+→ canonical preview
 → .schem writer round-trip
-→ Axiom / Clipboard / Placement
-→ Paper / Minecraft verification
+→ Axiom / Paper / Minecraft
 → acceptance report
 ```
 
-Failure resumes from the first invalidated owner rather than restarting the entire chain.
+Failure resumes from the first wrong owner and invalidates only true dependents.
 
 ## Stop Boundary
 
-Do not automatically start local runtime, add stairs/slabs, add Fast/Turbo routing, add another 3D provider, add MCP/Axiom automation, tune Axiom packets/performance, or promote `develop` to `Local`/`main`.
+Do not automatically:
+
+- run Hunyuan/Blender/Axiom/Minecraft;
+- implement stairs/slabs before V0 runtime evidence;
+- add Fast/Turbo routing;
+- add another 3D provider;
+- add Axiom/MCP automation;
+- add packet/performance tuning without measured evidence;
+- add NBT/entity support;
+- promote `develop` to `Local` or `main`.

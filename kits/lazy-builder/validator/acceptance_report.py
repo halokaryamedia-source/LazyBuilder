@@ -6,7 +6,15 @@ import json
 from pathlib import Path
 from typing import Any
 
-from session_contract import STAGE_DEFINITIONS, STAGE_ORDER, read_json, stage_map, utc_now, validate_session, write_json_atomic
+from session_contract import (
+    STAGE_DEFINITIONS,
+    STAGE_ORDER,
+    read_json,
+    stage_map,
+    utc_now,
+    validate_session,
+    write_json_atomic,
+)
 
 
 def build_report(session: dict[str, Any]) -> dict[str, Any]:
@@ -36,27 +44,50 @@ def build_report(session: dict[str, Any]) -> dict[str, Any]:
             first_failed = stage_id
             break
 
-    follow_up_owner = STAGE_DEFINITIONS[first_failed]["owner"] if first_failed else None
-    runtime_metrics = {
-        stage_id: stages[stage_id].get("metrics", {})
-        for stage_id in STAGE_ORDER
-        if stages[stage_id].get("metrics")
-    }
+    stage_evidence = {}
+    artifact_lineage = {}
+    runtime_metrics = {}
+    for stage_id in STAGE_ORDER:
+        stage = stages[stage_id]
+        stage_evidence[stage_id] = {
+            "status": stage["status"],
+            "owner": stage["owner"],
+            "input_digests": dict(stage.get("input_digests", {})),
+            "output_digests": dict(stage.get("output_digests", {})),
+            "started_at": stage.get("started_at"),
+            "finished_at": stage.get("finished_at"),
+            "failure_class": stage.get("failure_class"),
+            "notes": list(stage.get("notes", [])),
+        }
+        if stage.get("output_digests"):
+            artifact_lineage[stage_id] = dict(stage["output_digests"])
+        if stage.get("metrics"):
+            runtime_metrics[stage_id] = stage["metrics"]
 
     return {
         "schema_version": 1,
         "generated_at": utc_now(),
         "run_id": session["run_id"],
+        "case": {
+            "case_id": session["case_id"],
+            "minecraft_version": session["minecraft_version"],
+            "target": session["case"].get("target", {}),
+        },
         "overall_status": overall,
         "first_failed_stage": first_failed,
+        "follow_up_owner": STAGE_DEFINITIONS[first_failed]["owner"] if first_failed else None,
         "passed_stages": passed,
         "failed_stages": failed,
         "blocked_stages": blocked,
         "skipped_required_stages": skipped_required,
+        "input_snapshot": session.get("inputs", {}),
+        "selected_representative_stage": session.get("selected_shape_stage"),
         "selected_representative_artifact": session.get("artifacts", {}).get("selected_shape"),
+        "artifact_lineage": artifact_lineage,
+        "stage_evidence": stage_evidence,
         "runtime_metrics": runtime_metrics,
         "known_limitations": session.get("known_limitations", []),
-        "follow_up_owner": follow_up_owner,
+        "evidence_boundary": "PASS requires the exact declared runtime stages to have executed; pre-runtime/static checks never upgrade Hunyuan/Blender/Axiom/Minecraft runtime evidence.",
     }
 
 

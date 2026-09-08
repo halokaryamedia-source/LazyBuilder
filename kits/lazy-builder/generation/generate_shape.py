@@ -8,6 +8,9 @@ from pathlib import Path
 
 from runtime_contract import (
     HUNYUAN3D_MODEL,
+    HUNYUAN3D_MODEL_REVISION,
+    HUNYUAN3D_SOURCE_COMMIT,
+    HUNYUAN3D_SOURCE_REPO,
     HUNYUAN3D_SUBFOLDER,
     SHAPE_DEFAULTS,
     VIEW_NAMES,
@@ -49,9 +52,15 @@ def build_plan(args: argparse.Namespace, *, require_exists: bool) -> dict:
     )
     output_dir = Path(args.output_dir).expanduser()
     return {
+        "schema_version": 1,
         "stage": "shape",
         "model": HUNYUAN3D_MODEL,
+        "model_revision": HUNYUAN3D_MODEL_REVISION,
         "subfolder": HUNYUAN3D_SUBFOLDER,
+        "source_code": {
+            "repository": HUNYUAN3D_SOURCE_REPO,
+            "commit": HUNYUAN3D_SOURCE_COMMIT,
+        },
         "views": {name: str(path) for name, path in views.items()},
         "params": {
             "device": args.device,
@@ -78,6 +87,7 @@ def run(args: argparse.Namespace) -> int:
         return 0
 
     import torch
+    from huggingface_hub import snapshot_download
     from PIL import Image
     from hy3dgen.rembg import BackgroundRemover
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
@@ -95,10 +105,16 @@ def run(args: argparse.Namespace) -> int:
             image = remover(image)
         prepared_images[name] = image
 
+    pinned_snapshot = snapshot_download(
+        repo_id=HUNYUAN3D_MODEL,
+        revision=HUNYUAN3D_MODEL_REVISION,
+        allow_patterns=[f"{HUNYUAN3D_SUBFOLDER}/*"],
+    )
     pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-        HUNYUAN3D_MODEL,
+        pinned_snapshot,
         subfolder=HUNYUAN3D_SUBFOLDER,
         use_safetensors=True,
+        variant="fp16",
         device=args.device,
     )
 
@@ -117,6 +133,7 @@ def run(args: argparse.Namespace) -> int:
 
     manifest = dict(plan)
     manifest["status"] = "GENERATED_GLB_RUNTIME_REVIEW_REQUIRED"
+    manifest["resolved_model_snapshot"] = str(Path(pinned_snapshot).resolve())
     manifest["inputs"] = {
         name: {"path": raw_path, "sha256": sha256_file(Path(raw_path))}
         for name, raw_path in plan["views"].items()

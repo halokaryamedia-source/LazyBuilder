@@ -1,159 +1,212 @@
-# End-to-End Test Readiness
+# Pre-Runtime Readiness
 
-Status: `E2E_HARNESS_IMPLEMENTED_FIXTURE_PACK_REQUIRED`.
+Status: `PRE_RUNTIME_SYSTEM_READY_RUNTIME_NOT_STARTED`.
 
-Local Hunyuan, Blender, Axiom, Paper, and Minecraft runtime remains intentionally deferred.
+This file keeps its historical filename for repository continuity, but the phase is now named **Pre-Runtime Verification**. It must not be confused with the later **Runtime Acceptance Test**.
 
-## Locked first acceptance chain
+No Hunyuan GPU generation, Blender conversion, Axiom import, Paper placement, or Minecraft placement is claimed by this status.
+
+## Canonical product path
 
 ```text
-T1 TEXT → HunyuanDiT → approved reference → Hunyuan3D-2mv
-I1 SINGLE IMAGE → Hunyuan3D-2mv
-I2 FRONT/RIGHT/BACK/LEFT → Hunyuan3D-2mv
-→ choose representative GLB
-→ Blender 5.2.x / LazyBuilderTarget
-→ Minecraftize V0 + primitive suite
+T1 TEXT
+→ pinned HunyuanDiT reference
+→ user approval
+→ pinned Hunyuan3D-2mv shape
+
+I1 SINGLE IMAGE
+→ pinned Hunyuan3D-2mv shape
+
+I2 MULTIVIEW front/right/back/left
+→ pinned Hunyuan3D-2mv shape
+
+three GLBs
+→ select representative GLB
+→ Blender 5.2.x / LazyBuilderTarget + target.json
+→ Minecraftize V0 primitive suite
+→ Minecraftize representative model
 → canonical blocks.json
+→ canonical preview.svg from the same blocks.json
 → mcschematic 11.4.4 / Sponge V2 / DataVersion 4189
 → Axiom 5.3.0
 → AxiomPaper 5.0.1 / Paper 1.21.4
 → Minecraft Java 1.21.4
-→ one acceptance-report.json
+→ acceptance-report.json
 ```
 
-## Repository-owned harness
+## What Pre-Runtime Verification proves
+
+Repository-owned deterministic/static preparation covers:
 
 ```text
-case.template.json + prepare_case.py
-→ acceptance case scaffold
-
-session_contract.py + session_controller.py
-→ stage graph / digest / resume / exact next action
-
-dry_run_readiness.py
-→ static command-routing proof without launching runtime apps
-
-minecraftize/block_model.py
-→ canonical blocks.json
-
-minecraftize/minecraftize_v0.py
-→ Blender-native BVH V0 full-block converter
-
-minecraftize/run_primitive_suite.py
-→ actual V0 engine primitive path in Blender
-
-schematic/export_blocks.py
-→ exact blocks.json → .schem + writer round-trip
-
-acceptance_report.py
-→ consolidated evidence
+generation model/source pins + dry-run contracts
+session graph / resume / invalidation
+input and upstream artifact digest locking
+artifact schema validation
+Blender target metadata contract
+Minecraftize V0 pure logic
+Blender-native runtime entrypoints compile without launch
+primitive suite definition includes a true-interior proof
+canonical blocks.json validation
+canonical SVG preview from blocks.json
+schematic writer round-trip
+consolidated evidence/lineage report
 ```
 
-## Canonical local package
+Expected static marker:
+
+`STATIC_PRE_RUNTIME_DRY_RUN_PASS_RUNTIME_NOT_STARTED`
+
+## Session graph
 
 ```text
-workspace/active/lazybuilder-e2e/
-├── case.json
-├── inputs/
-└── runs/<run-id>/
-    ├── session.json
-    ├── 00-preflight/environment.json
-    ├── 10-reference/
-    ├── 19-shape-text/
-    ├── 20-shape-single/
-    ├── 21-shape-multiview/
-    ├── 30-blender/target.blend + target.json
-    ├── 40-minecraftize-primitives/blocks.json + report.json
-    ├── 41-minecraftize-model/blocks.json + report.json
-    ├── 50-schematic/build.schem + manifest.json
-    ├── 60-axiom/runtime.json
-    └── acceptance-report.json
+preflight
+├─ text_reference → shape_text ─┐
+├─ shape_single ────────────────┼→ representative selection → blender ─┐
+├─ shape_multiview ─────────────┘                                     ├→ minecraftize_model
+└─ minecraftize_primitives ────────────────────────────────────────────┘
+
+minecraftize_model
+→ minecraft_preview
+→ schematic
+→ axiom / paper / minecraft
 ```
 
-## Minecraftize V0 readiness
+`minecraftize_primitives` depends on the environment preflight, **not** on the selected Blender target. Changing the selected GLB therefore invalidates Blender and its true downstream dependents without throwing away an already valid primitive proof.
 
-The runtime entrypoint is now implemented but **not runtime-proven**.
+## Input integrity
+
+Session initialization snapshots SHA-256 for T1/I1/I2.
+
+Every stage start verifies its current inputs against either:
 
 ```text
-Blender prepared mesh: LazyBuilderTarget
-→ evaluated world geometry
-→ Blender mathutils BVHTree
-→ explicit target_width_blocks-derived pitch
-→ deterministic cell centers
-→ parity + near-surface occupancy evidence
-→ full minecraft:stone_bricks baseline
-→ canonical blocks.json + report.json
+original case snapshot digest
+or
+upstream PASS artifact digest
 ```
 
-Coordinate mapping remains:
+Changed input is not silently accepted. The stage owner must be explicitly invalidated and resumed.
+
+Changing the representative shape after Blender/downstream evidence exists invalidates:
 
 ```text
-Minecraft X =  Blender X
-Minecraft Y =  Blender Z
-Minecraft Z = -Blender Y
+blender
+→ minecraftize_model
+→ minecraft_preview
+→ schematic
+→ axiom
 ```
 
-V0 supports **full blocks only**. Stair and slab are explicitly `SKIPPED`, not fake PASS.
+and preserves independent `minecraftize_primitives` evidence.
 
-The primitive suite creates a deterministic 3×2×2 Blender box and executes the **same V0 converter**. Expected result: 12 full blocks with 3×2×2 tight bounds. This primitive runtime is deferred until the unified session.
+## Artifact contract
 
-## Human/application gates
+`ARTIFACT-CONTRACTS.md` is the detailed owner. A stage cannot become `PASS` merely because output files exist.
 
-Only these require real inspection/action:
+Every successful boundary must pass structure/version/digest checks appropriate to that artifact.
 
-1. approve the T1 generated reference;
-2. choose representative GLB after T1/I1/I2 shapes exist;
+## Generation reproducibility
+
+`generation/ENVIRONMENT.md` owns local setup. Generation manifests record:
+
+```text
+HunyuanDiT model + revision
+Hunyuan3D-2mv model + revision
+Hunyuan3D source repository + commit
+input hashes
+parameters
+output hash
+```
+
+Exact Python/PyTorch/CUDA/driver versions are captured from the real target machine during preflight; they are not guessed from static CI.
+
+## Minecraftize V0 boundary
+
+V0 remains full-block only.
+
+```text
+full_block → SUPPORTED
+stair      → SKIPPED
+slab       → SKIPPED
+```
+
+The Blender runtime primitive suite is prepared with two full-block cases:
+
+```text
+3×2×2 boundary case
+5×5×5 true-interior case
+```
+
+The second case must contain cells that are not merely inside the near-surface band, so runtime proof will actually exercise BVH parity/interior occupancy.
+
+That primitive suite is **prepared but not runtime-proven** until Blender is explicitly launched in the future acceptance session.
+
+## Preview contract
+
+Preview is not a second converter.
+
+```text
+canonical blocks.json
+├─ build_preview.py → preview.svg (top/front/right projections)
+└─ export_blocks.py → build.schem
+```
+
+The preview manifest binds the exact source/output SHA-256.
+
+## Human/application gates during future runtime
+
+Only these require real judgment/action:
+
+1. approve the generated T1 reference;
+2. select the representative GLB;
 3. prepare/judge `LazyBuilderTarget` in Blender;
-4. execute/inspect Axiom → Paper → Minecraft placement.
+4. inspect canonical block preview;
+5. execute/inspect Axiom → Paper → Minecraft placement.
 
-Successful deterministic script stages do not require separate chat confirmations.
+Successful deterministic script stages do not need ceremonial chat confirmation.
 
 ## Resume rule
 
 ```text
-failure
-→ record exact stage/evidence
-→ fix first wrong owner
+failure or intentional source change
+→ identify first wrong owner
 → invalidate only true dependents
+→ preserve independent valid evidence
 → resume from first invalidated stage
 ```
 
-Do not restart valid upstream generation merely because a downstream conversion/export/runtime stage failed.
+## What remains outside repository preparation
 
-## Fixture pack
+The system-side pre-runtime preparation is complete when static verification is green.
 
-`FIXTURE-PACK.md` owns the final input selection rules. Use:
+A future runtime session still needs user-selected test content:
 
-```bash
-python kits/lazy-builder/validator/prepare_case.py \
-  --workspace workspace/active/lazybuilder-e2e \
-  --case-id <id> \
-  --target-width-blocks <width>
+```text
+T1 prompt
+I1 front image
+I2 front/right/back/left consistent images
+intentional target_width_blocks
 ```
 
-This only creates folders/manifest; it starts no runtime.
+Those are acceptance inputs, not missing architecture.
 
-The real first case still needs one selected bounded object/build with prompt, single front image, consistent front/right/back/left images, and intentional target width.
+## Runtime Acceptance boundary
 
-## Static readiness proof
+Do not start runtime until the user explicitly requests it.
 
-CI must run repository owner verification, session/controller tests, static controller dry-run, block-model + V0 pure tests, Blender-entrypoint `py_compile` only, serialization fixture, and mcschematic writer round-trip.
+Runtime Acceptance means actual execution of:
 
-Expected marker:
+```text
+HunyuanDiT / Hunyuan3D GPU
+Blender target + primitive/model conversion
+Axiom import / Clipboard
+AxiomPaper / Paper placement
+Minecraft visual verification
+```
 
-`STATIC_DRY_RUN_PASS_RUNTIME_DEFERRED`
+Static/CI PASS never upgrades those claims.
 
-Static proof never upgrades Hunyuan/Blender/Axiom/Minecraft runtime to PASS.
+## Stop Boundary
 
-## Remaining boundary before the first local session
-
-No additional runtime architecture is required before testing.
-
-Remaining preparation is **test data**, not another subsystem:
-
-1. choose/populate the real T1/I1/I2 fixture pack;
-2. choose its intentional target width;
-3. initialize one run ID;
-4. explicitly start the unified local acceptance session.
-
-Do not implement stairs/slabs, Fast/Turbo routing, another 3D provider, Axiom automation, or optimization layers before V0 runtime evidence requires them.
+Do not automatically add stairs/slabs, Fast/Turbo routing, another 3D provider, Axiom automation/MCP, packet tuning, NBT/entity support, or promote `develop` to `Local`/`main`.

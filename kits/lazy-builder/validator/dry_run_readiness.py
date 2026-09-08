@@ -20,12 +20,12 @@ def _write(path: Path, data: bytes) -> None:
 
 
 def main() -> int:
-    with tempfile.TemporaryDirectory(prefix="lazybuilder-readiness-") as name:
+    with tempfile.TemporaryDirectory(prefix="lazybuilder-pre-runtime-") as name:
         root = Path(name)
         prompt = root / "inputs/text/prompt.txt"
         prompt.parent.mkdir(parents=True, exist_ok=True)
         prompt.write_text("bounded architectural test object\n", encoding="utf-8")
-        png = b"\x89PNG\r\n\x1a\nstatic-readiness-placeholder"
+        png = b"\x89PNG\r\n\x1a\nstatic-pre-runtime-placeholder"
         single = root / "inputs/single/front.png"
         _write(single, png)
         multiview = {}
@@ -48,11 +48,24 @@ def main() -> int:
         run_dir = root / "runs/dry-run"
         session = create_session(case=case, case_root=root, run_id="dry-run", run_dir=run_dir)
         session["selected_shape_stage"] = "shape_single"
-        actions = {stage: build_action(session, stage) for stage in (
-            "text_reference", "shape_single", "shape_multiview", "blender",
-            "minecraftize_primitives", "minecraftize_model", "schematic", "axiom",
-        )}
+        actions = {
+            stage: build_action(session, stage)
+            for stage in (
+                "preflight",
+                "text_reference",
+                "shape_single",
+                "shape_multiview",
+                "blender",
+                "minecraftize_primitives",
+                "minecraftize_model",
+                "minecraft_preview",
+                "schematic",
+                "axiom",
+            )
+        }
 
+        assert actions["preflight"]["kind"] == "command_plus_declared_facts"
+        assert "collect_environment.py" in " ".join(actions["preflight"]["argv"])
         assert actions["minecraftize_primitives"]["kind"] == "command"
         assert "run_primitive_suite.py" in " ".join(actions["minecraftize_primitives"]["argv"])
         assert actions["minecraftize_model"]["kind"] == "command"
@@ -61,17 +74,21 @@ def main() -> int:
         assert "LazyBuilderTarget" in model_argv
         assert "64" in model_argv
         assert actions["blender"]["target_object_name"] == "LazyBuilderTarget"
+        assert "write_target_metadata.py" in actions["blender"]["metadata_helper"]
+        assert actions["minecraft_preview"]["kind"] == "command"
+        assert "build_preview.py" in " ".join(actions["minecraft_preview"]["argv"])
         assert actions["schematic"]["kind"] == "command"
         assert actions["axiom"]["kind"] == "manual_application"
-        assert stage_map(session)["minecraftize_model"]["output_paths"][-1].endswith("report.json")
+        assert stage_map(session)["minecraft_preview"]["output_paths"][0].endswith("preview.svg")
 
         print(json.dumps({
             "status": "PASS",
-            "proof": "STATIC_DRY_RUN_PASS_RUNTIME_DEFERRED",
+            "proof": "STATIC_PRE_RUNTIME_DRY_RUN_PASS_RUNTIME_NOT_STARTED",
             "runtime_launched": False,
             "checked_actions": sorted(actions),
         }, indent=2, sort_keys=True))
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
