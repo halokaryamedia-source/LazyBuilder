@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Static repository contract checks for LazyBuilder.
 
-This gate protects stable repository/routing invariants. It does not prove
-Hunyuan, Blender, Axiom, Minecraft runtime behavior, or subjective build quality.
+This gate protects stable repository/routing/integration invariants. It does not
+prove Hunyuan, Blender, Axiom, Paper, Minecraft runtime behavior, or subjective
+build quality.
 """
 
 from __future__ import annotations
@@ -65,10 +66,12 @@ REQUIRED_PATHS = [
     "docs/knowledge/decisions/minecraftize-core-boundary.md",
     "docs/knowledge/decisions/anti-overdevelopment-simplification.md",
     "docs/knowledge/decisions/astra6-extrahigh-development-profile.md",
+    "docs/knowledge/decisions/axiom-1.21.4-integration-baseline.md",
     "docs/knowledge/reviews/README.md",
     "docs/knowledge/reviews/audit-template.md",
     "docs/knowledge/reviews/current-validation.md",
     "docs/knowledge/reviews/history/README.md",
+    "docs/knowledge/reviews/history/axiom-audit-2026-09-08.md",
     "docs/knowledge/operations/backlog.md",
     "docs/knowledge/operations/boot-baseline.md",
     "kits/lazy-builder/README.md",
@@ -230,7 +233,7 @@ def check_product_markers(errors: list[str]) -> None:
         "Hunyuan3D-2mv",
         "Blender 5.2.x LTS",
         "Minecraftize",
-        "mcschematic",
+        "mcschematic==11.4.4",
         "Axiom",
         "Minecraft Java Edition",
     ):
@@ -277,6 +280,86 @@ def check_m1_contract(errors: list[str]) -> None:
         fail(errors, ".gitignore must ignore generated artifacts/")
 
 
+def check_axiom_contract(errors: list[str]) -> None:
+    context = ROOT / "CONTEXT.md"
+    if context.is_file():
+        text = context.read_text(encoding="utf-8")
+        for marker in (
+            "Axiom 5.3.0",
+            "AxiomPaper 5.0.1+1.21.4",
+            "Axiom API family 9",
+            "Sponge Schematic Version 2",
+            "DataVersion 4189",
+            "Axiom 5.3.0 CLIENT parses the file",
+        ):
+            if marker not in text:
+                fail(errors, f"CONTEXT.md missing Axiom integration marker: {marker}")
+
+    decision = ROOT / "docs" / "knowledge" / "decisions" / "axiom-1.21.4-integration-baseline.md"
+    if decision.is_file():
+        text = decision.read_text(encoding="utf-8")
+        for marker in (
+            "Axiom 5.3.0",
+            "AxiomPaper 5.0.1+1.21.4",
+            "AxiomPaper 4.0.4",
+            "API version 8",
+            "AxiomPaper `5.0.4+1.21.4`",
+            "upgrade candidate",
+            "Sponge Schematic Version 2",
+            "DataVersion 4189",
+            "client parses file locally",
+        ):
+            if marker not in text:
+                fail(errors, f"Axiom decision missing marker: {marker}")
+
+    export = KIT_ROOT / "schematic" / "EXPORT.md"
+    if export.is_file():
+        text = export.read_text(encoding="utf-8")
+        for marker in (
+            "mcschematic==11.4.4",
+            "Sponge Schematic Version 2",
+            "DataVersion 4189",
+            "localX = x - floor(width / 2)",
+            "Axiom client",
+            "tight bounds",
+        ):
+            if marker not in text:
+                fail(errors, f"schematic EXPORT.md missing Axiom contract marker: {marker}")
+
+    validation = KIT_ROOT / "validator" / "VALIDATION.md"
+    if validation.is_file():
+        text = validation.read_text(encoding="utf-8")
+        for marker in (
+            "AxiomPaper 5.0.1+1.21.4",
+            "axiom.can_import_blocks",
+            "/whynoaxiom",
+            "/axiomhandshake",
+            "LOCAL RUNTIME PROOF REQUIRED",
+            "AxiomPaper 5.0.4+1.21.4",
+        ):
+            if marker not in text:
+                fail(errors, f"VALIDATION.md missing Axiom runtime marker: {marker}")
+
+    audit = ROOT / "docs" / "knowledge" / "reviews" / "history" / "axiom-audit-2026-09-08.md"
+    if audit.is_file():
+        text = audit.read_text(encoding="utf-8")
+        for marker in (
+            "AxiomPaper does **not** need to parse LazyBuilder's `.schem` file",
+            "Version = 2",
+            "Version = 3",
+            "DataVersion 4189",
+            "x - floor(width / 2)",
+            "allow-large-payload-for-all-packets",
+            "AxiomPaper 5.0.4+1.21.4",
+        ):
+            if marker not in text:
+                fail(errors, f"Axiom audit missing evidence marker: {marker}")
+
+    for jar in ROOT.rglob("*.jar"):
+        if jar.name.lower().startswith("axiom"):
+            fail(errors, f"Axiom runtime JAR must remain external and untracked: {jar.relative_to(ROOT)}")
+
+
 def check_markdown_links(errors: list[str]) -> None:
     for path in iter_markdown_files():
         text = path.read_text(encoding="utf-8")
@@ -307,6 +390,7 @@ def main() -> int:
     check_execution_modes(errors)
     check_product_markers(errors)
     check_m1_contract(errors)
+    check_axiom_contract(errors)
     check_markdown_links(errors)
 
     if errors:

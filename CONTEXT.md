@@ -19,8 +19,9 @@ multi-view reference images
 → light target cleanup
 → Minecraftize
 → Minecraft block preview
-→ .schem
-→ Axiom
+→ Sponge .schem
+→ Axiom client
+→ AxiomPaper / Paper placement
 → Minecraft Java world
 ```
 
@@ -77,9 +78,62 @@ Authority decreases downstream. Generated 3D, preview, schematic, and final scre
 - **3D generation:** Hunyuan3D-2mv only.
 - **3D workspace:** Blender 5.2.x LTS.
 - **Custom conversion core:** Blender addon `Minecraftize`.
-- **Schematic writer:** `mcschematic` unless a demonstrated compatibility defect requires reassessment.
-- **Final editor / placement:** Axiom.
+- **Schematic writer:** pinned `mcschematic==11.4.4` while compatible.
+- **Schematic format:** Sponge Schematic Version 2 for the current target.
+- **Final client editor / placement:** Axiom.
 - **Target:** Minecraft Java Edition.
+
+## Current Axiom integration baseline
+
+Current research/static baseline is the exact user-supplied Minecraft 1.21.4 environment:
+
+```text
+CLIENT
+Minecraft Java 1.21.4
+Fabric
+Axiom 5.3.0
+Axiom API family 9
+sha256 8026fdb448686cd6db69e69c695fa17f54508f801ddddb3ffeb850b79b04eae5
+
+SERVER
+Paper 1.21.4
+AxiomPaper 5.0.1+1.21.4
+Axiom API family 9
+sha256 cecafb3e1beba81245ee5bcfc3251052035526b99bb111127b968b09c92d86c8
+
+SCHEMATIC
+Sponge Schematic Version 2
+DataVersion 4189
+```
+
+Supplied `AxiomPaper 4.0.4` is not part of this baseline because it uses Axiom API version 8.
+
+`AxiomPaper 5.0.4+1.21.4` is only a researched upgrade candidate for a demonstrated slow-update/permission issue or an explicit user upgrade decision. Do not upgrade silently.
+
+### Axiom architecture rule
+
+```text
+LazyBuilder / mcschematic
+→ .schem
+→ Axiom 5.3.0 CLIENT parses the file
+→ Clipboard / Placement
+→ client block buffer
+→ AxiomPaper validates multiplayer session / permission / region / transport
+→ Paper world modification
+```
+
+This means LazyBuilder does **not** need:
+
+- an Axiom protocol implementation;
+- a Paper-side schematic parser;
+- direct Axiom automation/MCP;
+- `.bp` Blueprint output.
+
+Axiom 5.3.0 recenters imported Sponge schematic coordinates from dimensions. Export tight bounds and do not depend on `Offset`, `WEOffsetX/Y/Z`, or WorldEdit origin metadata to control Axiom's active Clipboard pivot. Final positioning belongs to Axiom Placement/Gizmo.
+
+Normal entities are outside the current Sponge import contract. BlockEntity/NBT support is deferred until a concrete requirement and separate test exist.
+
+Detailed evidence lives in `docs/knowledge/reviews/history/axiom-audit-2026-09-08.md`; the durable decision lives in `docs/knowledge/decisions/axiom-1.21.4-integration-baseline.md`.
 
 ## Development operator profile
 
@@ -106,7 +160,11 @@ Do not add by default:
 - custom foundation model training;
 - custom schematic/NBT format;
 - direct Minecraft world injection;
-- direct Axiom automation;
+- direct Axiom automation/protocol implementation;
+- Paper-side schematic parsing;
+- Axiom Blueprint `.bp` output;
+- entity/NBT support before a concrete need/test;
+- packet/rate tuning before observed scale evidence;
 - complex optimizer/ML solver before rule-based conversion proves insufficient;
 - broad Minecraft block-family support before a real build requires it.
 
@@ -129,20 +187,23 @@ The public LazyBuilder repository owns the system, not live build/project data.
 
 `workspace/active/` and `workspace/archive/` are local/external mount conventions. Their project subdirectories are ignored by Git; only guidance is tracked.
 
-Do not commit private references, client imagery, generated GLBs, `.blend` work files, output schematics, credentials, or other project production state unless an explicit visibility decision authorizes it.
+Do not commit private references, client imagery, generated GLBs, `.blend` work files, output schematics, credentials, Axiom client JARs, or other project production state unless an explicit visibility decision authorizes it and licensing permits it.
 
 ## Operating direction
 
 - recover repository/project context before asking the user to repeat it;
 - use the smallest owner that can settle the current decision;
 - preserve the single-provider Hunyuan3D-2mv choice until evidence proves it inadequate;
-- prove `.schem → Axiom` before building sophisticated conversion logic;
+- complete exact `.schem → Axiom 5.3.0 → AxiomPaper 5.0.1 → Minecraft 1.21.4` runtime proof before M2;
 - build Minecraftize incrementally: full blocks first, then stairs, then slabs;
+- export tight schematic bounds;
+- preserve canonical Minecraft BlockState strings and exact current DataVersion;
 - add wall/fence/pane/decorative blocks only from real use cases;
 - prefer existing tools over custom infrastructure;
 - use Astra6 ExtraHigh reasoning to reduce rework, not to expand scope;
 - keep deterministic calculations and file-format mechanics in code rather than prose/model improvisation;
 - use the cheapest proof that can falsify the active claim;
+- diagnose Axiom failures by first wrong owner: client format/import vs session/permission vs Paper/world/region vs exporter BlockState;
 - historical audits/backlog/TODOs are not active work unless promoted by current continuation;
 - `No change required` is valid;
 - stop when requested scope is complete and sufficiently proven.
