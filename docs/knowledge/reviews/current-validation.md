@@ -8,7 +8,7 @@ Working branch: `develop`.
 Verified integration baseline: `Local`.  
 Stable branch: `main`.
 
-LazyBuilder remains **pre-MVP**. Repository operating/documentation structure is now implemented on the `develop` candidate; product runtime is not yet claimed.
+LazyBuilder remains **pre-MVP**. The PRD-Creator-style repository operating/documentation baseline is now verified and promoted to `Local`; product runtime is not yet claimed.
 
 ## Current production chain
 
@@ -23,16 +23,16 @@ reference images
 → Minecraft Java
 ```
 
-## Repository operating-system proof
+## Repository operating-system evidence
 
-Candidate commit:
+Initial candidate:
 
 ```text
 3ff6b3e259aecc8342f43f8ba5b8e83d64c51d7e
 chore(governance): adopt structured repository operating system
 ```
 
-GitHub Actions evidence:
+Static evidence:
 
 ```text
 Repository Verify
@@ -40,16 +40,30 @@ run 34202778188
 Static repository contract → PASS
 ```
 
-The static gate proved:
+Integration evidence:
 
-- required governance/foundation/knowledge/kit owners exist;
-- canonical skill set is exactly `development-brief` + `build-production`;
-- `kits/lazy-builder/` has the intended bounded domain shape;
-- old duplicate `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, and `docs/TOOLS.md` are retired;
-- branch-contract/product markers are present;
-- tracked internal Markdown links resolve.
+```text
+PR #1 — Adopt PRD-Creator operating model
+head: develop
+base: Local
+Local Promotion Verify run 34202955180 → PASS
+merge method: squash
+Local milestone: 98046e2339aff0beff3caff8dee9030b258686ef
+```
 
-`develop → Local` promotion verification is the remaining integration boundary before this operating structure becomes the verified `Local` baseline.
+After the squash promotion, `develop` was synchronized/reset to the resulting `Local` milestone before opening the next cycle.
+
+The verified baseline establishes:
+
+- `develop` active Development / `Local` verified milestone / `main` stable history;
+- canonical root routing/governance owners;
+- `docs/foundation/` durable Flow policy;
+- `docs/knowledge/` continuation/ownership/decision/review/backlog separation;
+- canonical skills `development-brief` + `build-production`;
+- one `kits/lazy-builder/` product package;
+- ignored local/external workspace project-data boundary;
+- static repository and promotion gates;
+- retirement of old duplicate `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, and `docs/TOOLS.md` owners.
 
 ## Product/runtime proof status
 

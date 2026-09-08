@@ -2,17 +2,23 @@
 
 ## Current Status
 
-`REPOSITORY_OPERATING_SYSTEM_READY_FOR_LOCAL_PROMOTION`
+`REPOSITORY_OPERATING_SYSTEM_COMPLETE`
 
-LazyBuilder now follows the PRD-Creator operating/documentation pattern on `develop`:
+The PRD-Creator-style operating/documentation baseline is complete and verified.
+
+Branch state:
 
 ```text
-develop → active Development
-Local   → verified squash milestone
-main    → stable history
+develop → active Development continuation
+Local   → verified operating-system milestone
+main    → stable repository history
 ```
 
-Canonical routing, foundation policy, knowledge memory, decision/review/backlog separation, product kit ownership, workspace boundary, and static repository verification are in place.
+Verified `Local` milestone:
+
+```text
+98046e2339aff0beff3caff8dee9030b258686ef
+```
 
 The locked product stack remains:
 
@@ -25,22 +31,39 @@ Hunyuan3D-2mv
 → Minecraft Java
 ```
 
-## Evidence
+## Completed Boundary
 
-`Repository Verify` passed on the operating-system candidate (`3ff6b3e...`, workflow run `34202778188`).
+Repository routing, foundation policy, knowledge memory, decisions, reviews, backlog, product package ownership, workspace safety, repository verification, and promotion governance are established.
 
-## Active Boundary
+Do not reopen or expand this operating-system layer without a concrete defect.
 
-Promote this one coherent operating-system update from `develop` to `Local` only after `Local Promotion Verify` passes, using **Squash and merge**.
+## Next Step
 
-After promotion, synchronize/reset `develop` to resulting `Local` HEAD before starting the next development cycle.
+**M1 — prove a minimal programmatic `.schem` can be imported into Axiom and placed in Minecraft Java.**
 
-This boundary does **not** implement Hunyuan runtime setup, Blender addon code, Minecraftize conversion, or schematic generation.
+M1 should establish the writer/handoff path before Hunyuan or Minecraftize complexity is introduced.
 
-## Next Meaningful Product Step
+Expected proof sequence:
 
-After the verified baseline exists:
+```text
+minimal programmatic block structure
+→ mcschematic
+→ test .schem
+→ Axiom Import Schematic
+→ Clipboard
+→ place in Minecraft Java world
+→ record exact runtime result / compatibility notes
+```
 
-> **M1 — prove a minimal programmatic `.schem` can be imported into Axiom and placed in Minecraft Java.**
+## Stop Boundary
 
-Do not start stair/slab conversion, Hunyuan runtime integration, MCP, or multi-model work before that handoff path is proven.
+Await an explicit next scope before starting M1.
+
+Do not automatically:
+
+- install/configure Hunyuan3D-2mv;
+- implement Minecraftize;
+- add stairs/slabs;
+- add MCP;
+- add another 3D provider;
+- promote `Local` to `main`.
