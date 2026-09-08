@@ -118,7 +118,7 @@ class TestReadinessContractTests(unittest.TestCase):
             self.assertEqual(stages["shape_multiview"]["status"], "PASS")
             self.assertEqual(stages["blender"]["status"], "PENDING")
 
-    def test_action_contract_exposes_real_paths_and_known_blockers(self) -> None:
+    def test_action_contract_exposes_real_paths_and_minecraftize_v0_commands(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             case = make_case(root)
@@ -127,9 +127,18 @@ class TestReadinessContractTests(unittest.TestCase):
             self.assertEqual(stage_action["kind"], "command")
             self.assertIn("--front", stage_action["argv"])
             self.assertIn("--left", stage_action["argv"])
-            blocker = build_action(session, "minecraftize_model")
-            self.assertEqual(blocker["kind"], "blocked")
-            self.assertEqual(blocker["blocker"], "MINECRAFTIZE_RUNTIME_ENTRYPOINT_NOT_IMPLEMENTED")
+
+            primitives = build_action(session, "minecraftize_primitives")
+            self.assertEqual(primitives["kind"], "command")
+            self.assertIn("run_primitive_suite.py", " ".join(primitives["argv"]))
+
+            model = build_action(session, "minecraftize_model")
+            self.assertEqual(model["kind"], "command")
+            joined = " ".join(model["argv"])
+            self.assertIn("minecraftize_v0.py", joined)
+            self.assertIn("LazyBuilderTarget", model["argv"])
+            self.assertIn("64", model["argv"])
+            self.assertTrue(model["argv"][-1].endswith("41-minecraftize-model"))
 
     def test_acceptance_report_never_upgrades_partial_to_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
